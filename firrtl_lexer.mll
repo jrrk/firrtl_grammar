@@ -19,38 +19,30 @@ READ_UNDER_WRITE,  "read_under_write";
    Analog, "analog";
    ANALOG, "analog";
    ADD, "add";
-   AND, "and";
    ANDR, "andr";
    ASCLOCK, "asclock";
    ASFIXEDPOINT, "asfixedpoint";
-   ASSINT, "assint";
-   ASUINT, "asuint";
    ATTACH, "attach";
    BECOMES1, "becomes1";
    BECOMES2, "becomes2";
-   BITS, "bits";
    BPSET, "bpset";
    BPSHL, "bpshl";
    BPSHR, "bpshr";
-   CAT, "cat";
    Clock, "Clock";
    CLOCK, "clock";
    CONNECTS, "connects";
    CMEM, "cmem";
    COLON, "colon";
-   CVT, "cvt";
    DEPTH, "depth";
    DIV, "div";
    DSHL, "dshl";
    DSHR, "dshr";
    ELSE, "else";
-   EQ, "eq";
    EQUALS, "equals";
    EXTMODULE, "extmodule";
    Fixed, "fixed";
    FIXED, "fixed";
    FLIP, "flip";
-   GEQ, "geq";
    GREATER, "greater";
    GT, "gt";
    HEAD, "head";
@@ -62,7 +54,6 @@ READ_UNDER_WRITE,  "read_under_write";
    LBRACK, "lbrack";
    LBRACE, "lbrace";
    LPAREN, "lparen";
-   LEQ, "leq";
    LESS, "less";
    LT, "lt";
    MEM, "mem";
@@ -74,16 +65,13 @@ READ_UNDER_WRITE,  "read_under_write";
    NEQ, "neq";
    NEW, "new";
    NODE, "node";
-   NOT, "not";
    OF, "of";
    OLD, "old";
-   OR, "or";
    ORR, "orr";
    OUTPUT, "output";
    PAD, "pad";
    PARAMETER, "parameter";
    DOT, "dot";
-   PRINTF, "printf";
    RBRACK, "rbrack";
    RBRACE, "rbrace";
    READ_LATENCY, "read_LATENCY";
@@ -97,11 +85,9 @@ READ_UNDER_WRITE,  "read_under_write";
    REM, "rem";
    RESET, "reset";
    SHL, "shl";
-   SHR, "shr";
    SInt, "sint";
    SKIP, "skip";
    SMEM, "smem";
-   STOP, "stop";
    SUB, "sub";
    TAIL, "tail";
    UInt, "UInt";
@@ -112,7 +98,6 @@ READ_UNDER_WRITE,  "read_under_write";
    WITH, "with";
    WRITE, "write";
    WRITER, "writer";
-   XOR, "xor";
    XORR, "xorr";
       ];
     fun s -> Hashtbl.find h s
@@ -135,11 +120,11 @@ let signedint = [ '+' '-' ] ['1'-'9'] [ '0' - '9']*
 
 let posint = ['1'-'9'] [ '0' - '9']*
 
-let hexlit = '"' 'h' ( '+' | '-' )* ['0'-'9' 'A'-'F' 'a'-'f' ]+ '"'
+let hexlit = '"' 'h' [ '0'-'9' 'A'-'F' 'a'-'f' ] [ '0'-'9' 'A'-'F' 'a'-'f' ]* '"'
 
 let doublelit = [ '+' '-' ]* ['0'-'9']+ '.' ['0'-'9']+ [ 'E' '+' '-' '0'-'9' ]
 
-let unquotedstring = '"'[^ '\r' '\n']*
+let unquotedstring = [^ '\r' '\n' ]*
 
 let stringlit = '"' unquotedstring '"'
 
@@ -165,6 +150,38 @@ let becomes1 = '<' '-'
 
 let becomes2 = '<' '='
 
+let bits_ = 'b' 'i' 't' 's' '('
+
+let leq_ = 'l' 'e' 'q' '('
+
+let geq_ = 'g' 'e' 'q' '('
+
+let and_ = 'a' 'n' 'd' '('
+
+let or_ = 'o' 'r' '('
+
+let xor_ = 'x' 'o' 'r' '('
+
+let not_ = 'n' 'o' 't' '('
+
+let eq_ = 'e' 'q' '('
+
+let printf_ = 'p' 'r' 'i' 'n' 't' 'f' '('
+
+let stop_ = 's' 't' 'o' 'p' '('
+
+let cat_ = 'c' 'a' 't' '('
+
+let cvt_ = 'c' 'v' 't' '('
+
+let shr_ = 's' 'h' 'r' '('
+
+let dshl_ = 'd' 's' 'h' 'l' '('
+
+let asuint_ = 'a' 's' 'U' 'I' 'n' 't' '('
+
+let assint_ = 'a' 's' 'S' 'I' 'n' 't' '('
+
 rule token = parse
   | info { token lexbuf }
   | comment { token lexbuf }
@@ -172,8 +189,8 @@ rule token = parse
   | id as i { print_endline i; try keyword i with Not_found -> Id i }
   | unsignedint as u { UnsignedInt u }
   | signedint as s { SignedInt s }
-  | stringlit as s { StringLit s }
   | hexlit as h { HexLit h }
+  | stringlit as s { print_endline s; StringLit s }
   | doublelit as d { DoubleLit d }
   | relaxedid as r { print_endline r; RelaxedId r }
   | rawstring as r { print_endline r; RawString r }
@@ -184,6 +201,54 @@ rule token = parse
 
 | becomes2
 { tok ( BECOMES2 ) }
+
+| asuint_
+{ tok ( ASUINT ) }
+
+| assint_
+{ tok ( ASSINT ) }
+
+| bits_
+{ tok ( BITS ) }
+
+| leq_
+{ tok ( LEQ ) }
+
+| geq_
+{ tok ( GEQ ) }
+
+| eq_
+{ tok ( EQ ) }
+
+| and_
+{ tok ( AND ) }
+
+| or_
+{ tok ( OR ) }
+
+| xor_
+{ tok ( XOR ) }
+
+| not_
+{ tok ( NOT ) }
+
+| printf_
+{ tok ( PRINTF ) }
+
+| stop_
+{ tok ( STOP ) }
+
+| cat_
+{ tok ( CAT ) }
+
+| cvt_
+{ tok ( CVT ) }
+
+| shr_
+{ tok ( SHR ) }
+
+| dshl_
+{ tok ( DSHL ) }
 
 | '!'
 { tok ( PLING ) }
