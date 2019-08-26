@@ -25,22 +25,111 @@ HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
 MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 */
 
-%token Id
-%token RelaxedId
-%token UnsignedInt
-%token SignedInt
-%token StringLit
-%token HexLit
-%token DoubleLit
-%token RawString
+%token <string> Id
+%token <string> RelaxedId
+%token <string> UnsignedInt
+%token <string> SignedInt
+%token <string> StringLit
+%token <string> HexLit
+%token <string> DoubleLit
+%token <string> RawString
 %token MODULE
 %token EXTMODULE
 %token CIRCUIT
 %token DEFNAME PARAMETER
-%token INPUT OUTPUT FLIP 
+%token INPUT OUTPUT FLIP WIRE REG MEM CMEM SMEM MPORT INST NODE STOP PRINTF SKIP ATTACH IS INVALID OF WITH WHEN ELSE MUX VALIDIF
+%token INFER READ WRITE RDWR OLD NEW UNDEFINED CLOCK ANALOG FIXED 
+%token RESET DATA_TYPE DEPTH READ_LATENCY  WRITE_LATENCY READ_UNDER_WRITE READER WRITER READWRITER
 %token UInt SInt Fixed Clock Analog
-%token LCURLY RCURLY LBRACK RBRACK COLON LESS GREATER EQUALS
-%token <token option> TOPT
+%token LCURLY RCURLY LBRACK RBRACK COLON PERIOD LESS GREATER EQUALS LPAREN RPAREN BECOMES1 BECOMES2 CONNECTS
+  %token ANALOG
+  %token ADD
+  %token AND
+  %token ANDR
+  %token ASCLOCK
+  %token ASFIXEDPOINT
+  %token ASSINT
+  %token ASUINT
+  %token ATTACH
+  %token BITS
+  %token BPSET
+  %token BPSHL
+  %token BPSHR
+  %token CAT
+  %token Clock
+  %token CLOCK
+  %token CMEM
+  %token COLON
+  %token CVT
+  %token DEPTH
+  %token DIV
+  %token DSHL
+  %token DSHR
+  %token ELSE
+  %token EQ
+  %token EXTMODULE
+  %token Fixed
+  %token FIXED
+  %token FLIP
+  %token GEQ
+  %token GT
+  %token HEAD
+  %token HexLit
+  %token INFER
+  %token INPUT
+  %token INST
+  %token INVALID
+  %token IS
+  %token LCURLY
+  %token LEQ
+  %token LT
+  %token MEM
+  %token MODULE
+  %token MPORT
+  %token MUL
+  %token MUX
+  %token NEG
+  %token NEQ
+  %token NEW
+  %token NODE
+  %token NOT
+  %token OF
+  %token OLD
+  %token OR
+  %token ORR
+  %token OUTPUT
+  %token PAD
+  %token PARAMETER
+  %token PRINTF
+  %token RDWR
+  %token READ
+  %token READER
+  %token READWRITER
+  %token REG
+  %token RelaxedId
+  %token REM
+  %token RESET
+  %token SHL
+  %token SHR
+  %token SignedInt
+  %token SInt
+  %token SKIP
+  %token SMEM
+  %token STOP
+  %token SUB
+  %token TAIL
+  %token UInt
+  %token UNDEFINED
+  %token UnsignedInt
+  %token VALIDIF
+  %token WHEN
+  %token WIRE
+  %token WITH
+  %token WRITE
+  %token WRITER
+  %token XOR
+  %token XORR
+%token TNone
 %token <token array> TARRAY
 %token <token list> TLIST
 %token <token*token> TUPLE2
@@ -56,7 +145,8 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 %token <token*token*token*token*token*token*token*token*token*token*token*token> TUPLE12
 %token <token*token*token*token*token*token*token*token*token*token*token*token*token> TUPLE13
 %token <token*token*token*token*token*token*token*token*token*token*token*token*token*token> TUPLE14
-%type <token> circuit
+%type <token list> simple_stmt_lst id_lst suite
+%type <token> circuit simple_stmt stmt reset_block suite_opt
 %start circuit
 %%
 
@@ -78,8 +168,8 @@ module1
   ;
 
 defname_opt
-  : { TOPT None }
-  | defname { TOPT (Some $1) }
+  : { TNone }
+  | defname { $1 }
   
 port_lst
   : { [] }
@@ -123,8 +213,8 @@ field
   ;
   
 flip_opt
-  : { TOPT None }
-  | FLIP { TOPT (Some FLIP) }
+  : { TNone }
+  | FLIP { FLIP }
   
 defname
   : DEFNAME EQUALS id { TUPLE3(DEFNAME,EQUALS,$3) }
@@ -133,47 +223,47 @@ defname
 parameter
   : PARAMETER id EQUALS intLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
   | PARAMETER id EQUALS stringLit { TUPLE4(PARAMETER,$2,EQUALS, $4) }
-  | PARAMETER id EQUALS DoubleLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | PARAMETER id EQUALS RawString { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS doubleLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS rawString { TUPLE4(PARAMETER,$2,EQUALS,$4) }
   ;
 
 moduleBlock
-  : simple_stmt_lst { $1 }
+  : simple_stmt_lst { TLIST $1 }
   ;
 
 simple_stmt_lst
   : { [] }
   | simple_stmt_lst simple_stmt { $2 :: $1 }
 
-simple_reset0:  'reset' '=>' '(' exp exp ')' { }
+simple_reset0:  RESET CONNECTS LPAREN exp exp RPAREN { TUPLE6(RESET, CONNECTS, LPAREN, $4, $5, RPAREN) }
 
 simple_reset
-	: simple_reset0 { }
-	| '(' simple_reset0 ')' { }
+	: simple_reset0 { $1 }
+	| LPAREN simple_reset0 RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
 	;
 
 reset_block
-	:  simple_reset  { }
-	| '(' simple_reset ')' { }
+	: simple_reset { $1 }
+	| LPAREN simple_reset RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
   ;
 
 stmt
-  : 'wire' id COLON type1 { }
-  | 'reg' id COLON type1 exp with_opt  { }
-  | 'mem' id COLON   memField_lst { }
-  | 'cmem' id COLON type1  { }
-  | 'smem' id COLON type1  { }
-  | mdir 'mport' id EQUALS id LBRACK exp RBRACK exp  { }
-  | 'inst' id 'of' id  { }
-  | 'node' id EQUALS exp  { }
-  | exp '<=' exp  { }
-  | exp '<-' exp  { }
-  | exp 'is' 'invalid'  { }
-  | when1 { }
-  | 'stop(' exp exp intLit ')'  { }
-  | 'printf(' exp exp StringLit exp_lst ')'  { }
-  | 'skip'  { }
-  | 'attach' '(' exp_lst ')'  { }
+  : WIRE id COLON type1 { TUPLE4(WIRE,$2,COLON,$4) }
+  | REG id COLON type1 exp with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
+  | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST $4) }
+  | CMEM id COLON type1  { TUPLE4(CMEM,$2,COLON,$4) }
+  | SMEM id COLON type1  { TUPLE4(SMEM,$2,COLON,$4) }
+  | mdir MPORT id EQUALS id LBRACK exp RBRACK exp  { TUPLE9($1,MPORT,$3,EQUALS,$5,LBRACK,$7,RBRACK,$9) }
+  | INST id OF id  { TUPLE4(INST,$2,OF,$4) }
+  | NODE id EQUALS exp { TUPLE4(NODE,$2,EQUALS,$4) }
+  | exp BECOMES2 exp  { TUPLE3(BECOMES2,$1,$3) }
+  | exp BECOMES1 exp  { TUPLE3(BECOMES1,$1,$3) }
+  | exp IS INVALID {TUPLE3($1,IS,INVALID) }
+  | when1 { $1 }
+  | STOP exp exp intLit RPAREN  { TUPLE5(STOP,$2,$3,$4,RPAREN) }
+  | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST $5,RPAREN) }
+  | SKIP  { SKIP}
+  | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST $3,RPAREN) }
   ;
 
 exp_lst
@@ -184,27 +274,27 @@ memField_lst
   : { [] }
   | memField_lst memField { $2 :: $1 }
 
-with_opt:
-  | 'with' COLON reset_block { }
+with_opt: { TNone }
+  | WITH COLON reset_block { TUPLE3(WITH,COLON,$3) }
   
 memField
-	:  'data-type' '=>' type1 { }
-	| 'depth' '=>' intLit { }
-	| 'read-latency' '=>' intLit { }
-	| 'write-latency' '=>' intLit { }
-	| 'read-under-write' '=>' ruw { }
-	| 'reader' '=>' id_lst { }
-	| 'writer' '=>' id_lst { }
-	| 'readwriter' '=>' id_lst { }
+	: DATA_TYPE CONNECTS type1 { TUPLE3(DATA_TYPE,CONNECTS,$3) }
+	| DEPTH CONNECTS intLit { TUPLE3(DEPTH,CONNECTS,$3) }
+	| READ_LATENCY CONNECTS intLit { TUPLE3(READ_LATENCY,CONNECTS,$3) }
+	| WRITE_LATENCY CONNECTS intLit { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
+	| READ_UNDER_WRITE CONNECTS ruw { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
+	| READER CONNECTS id_lst { TUPLE3(READER,CONNECTS,TLIST $3) }
+	| WRITER CONNECTS id_lst { TUPLE3(WRITER,CONNECTS,TLIST $3) }
+	| READWRITER CONNECTS id_lst { TUPLE3(READWRITER,CONNECTS,TLIST $3) }
 	;
 
 id_lst
-  : id { }
-  | id id_lst { }
+  : id { [ $1 ] }
+  | id_lst id { $2 :: $1 }
   
 simple_stmt
-  : stmt { }
-  | { }
+  : stmt { $1 }
+  | { TNone }
   ;
 
 /*
@@ -215,54 +305,54 @@ simple_stmt
         definitions. Let's call that _the_ "moduleBody". A "moduleBody" could possibly be empty
 */
 suite
-  : simple_stmt { }
-  | simple_stmt suite { }
+  : simple_stmt { [ $1 ] }
+  | suite simple_stmt { $2 :: $1 }
   ;
 
 when1
-  : 'when' exp COLON suite_opt else_when_opt { }
+  : WHEN exp COLON suite_opt else_when_opt { TUPLE5(WHEN, $2, COLON, $4, $5) }
   ;
 
 suite_opt
-  : { None }
-  | suite { Some suite }
+  : { TNone }
+  | suite { TLIST $1 }
   
 when_opt
-  : when1 { }
-  | COLON suite_opt { }
+  : when1 { $1 }
+  | COLON suite_opt { TUPLE2(COLON, $2) }
 
 else_when_opt
-  : { }
-  | 'else' when_opt { }
+  : { TNone }
+  | ELSE when_opt { TUPLE2(ELSE,$2) }
   
 info
-  : { }
+  : { TNone }
   ;
 
 mdir
-  : 'infer' { }
-  | 'read' { }
-  | 'write' { }
-  | 'rdwr' { }
+  : INFER { INFER }
+  | READ { READ }
+  | WRITE { WRITE }
+  | RDWR { RDWR }
   ;
 
 ruw
-  : 'old' { }
-  | 'new' { }
-  | 'undefined' { }
+  : OLD { OLD }
+  | NEW { NEW }
+  | UNDEFINED { UNDEFINED }
   ;
 
 exp
-  : 'UInt' intlit_opt '(' intLit ')' { }
-  | 'SInt' intlit_opt '(' intLit ')' { }
-  | id  { }   // Ref
-  | exp '.' fieldId { }
-  | exp '.' DoubleLit  { } // TODO Workaround for #470
-  | exp LBRACK intLit RBRACK { }
-  | exp LBRACK exp RBRACK { }
-  | 'mux(' exp exp exp ')' { }
-  | 'validif(' exp exp ')' { }
-  | primop exp_lst intLit_lst  ')' { }
+  : UInt intlit_opt LPAREN intLit RPAREN { TUPLE5(UInt, $2, LPAREN, $4, RPAREN) }
+  | SInt intlit_opt LPAREN intLit RPAREN { TUPLE5(SInt, $2, LPAREN, $4, RPAREN) }
+  | id  { $1 }   // Ref
+  | exp PERIOD fieldId { TUPLE3($1,PERIOD,$3) }
+  | exp PERIOD doubleLit  { TUPLE3($1,PERIOD,$3) } // TODO Workaround for #470
+  | exp LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
+  | exp LBRACK exp RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
+  | MUX exp exp exp RPAREN { TUPLE5(MUX,$2,$3,$4,RPAREN) }
+  | VALIDIF exp exp RPAREN { TUPLE4(VALIDIF,$2,$3,RPAREN) }
+  | primop exp_lst intLit_lst RPAREN { TUPLE3($1,TLIST $2,TLIST $3) }
   ;
 
 intLit_lst
@@ -270,111 +360,117 @@ intLit_lst
   | intLit_lst intLit { $2 :: $1 }
   
 id
-  : Id { }
-  | keywordAsId { }
+  : Id { Id $1 }
+  | keywordAsId { $1 }
   ;
 
 fieldId
-  : Id { }
-  | RelaxedId { }
-  | UnsignedInt { }
-  | keywordAsId { }
+  : Id { Id $1 }
+  | RelaxedId { RelaxedId $1 }
+  | UnsignedInt { UnsignedInt $1 }
+  | keywordAsId { $1 }
   ;
 
 intLit
-  : UnsignedInt { }
-  | SignedInt { }
-  | HexLit { }
+  : UnsignedInt { UnsignedInt $1 }
+  | SignedInt { SignedInt $1 }
+  | HexLit { HexLit $1 }
   ;
 
 stringLit
   : StringLit { StringLit $1 }
   
+rawString
+  : RawString { RawString $1 }
+  
+doubleLit
+  : DoubleLit { DoubleLit $1 }
+  
 // Keywords that are also legal ids
 keywordAsId
-  : 'circuit' { }
-  | 'module' { }
-  | 'extmodule' { }
-  | PARAMETER { }
-  | 'input' { }
-  | 'output' { }
-  | 'UInt' { }
-  | 'SInt' { }
-  | 'Clock' { }
-  | 'Analog' { }
-  | 'Fixed' { }
-  | 'flip' { }
-  | 'wire' { }
-  | 'reg' { }
-  | 'with' { }
-  | 'reset' { }
-  | 'mem' { }
-  | 'depth' { }
-  | 'reader' { }
-  | 'writer' { }
-  | 'readwriter' { }
-  | 'inst' { }
-  | 'of' { }
-  | 'node' { }
-  | 'is' { }
-  | 'invalid' { }
-  | 'when' { }
-  | 'else' { }
-  | 'stop' { }
-  | 'printf' { }
-  | 'skip' { }
-  | 'old' { }
-  | 'new' { }
-  | 'undefined' { }
-  | 'mux' { }
-  | 'validif' { }
-  | 'cmem' { }
-  | 'smem' { }
-  | 'mport' { }
-  | 'infer' { }
-  | 'read' { }
-  | 'write' { }
-  | 'rdwr' { }
+  : CIRCUIT { CIRCUIT }
+  | MODULE { MODULE}
+  | EXTMODULE { EXTMODULE }
+  | PARAMETER { PARAMETER }
+  | INPUT { INPUT }
+  | OUTPUT { OUTPUT }
+  | UInt { UInt }
+  | SInt { SInt }
+  | CLOCK { CLOCK }
+  | ANALOG { ANALOG }
+  | FIXED { FIXED }
+  | FLIP { FLIP }
+  | WIRE { WIRE }
+  | REG { REG }
+  | WITH { WITH }
+  | RESET { RESET }
+  | MEM { MEM }
+  | DEPTH { DEPTH }
+  | READER { READER }
+  | WRITER { WRITER }
+  | READWRITER { READWRITER }
+  | INST { INST }
+  | OF { OF }
+  | NODE { NODE }
+  | IS { IS }
+  | INVALID { INVALID }
+  | WHEN { WHEN }
+  | ELSE { ELSE }
+  | STOP { STOP }
+  | PRINTF { PRINTF }
+  | SKIP { SKIP }
+  | OLD { OLD }
+  | NEW { NEW }
+  | UNDEFINED { UNDEFINED }
+  | MUX { MUX }
+  | VALIDIF { VALIDIF }
+  | CMEM { CMEM }
+  | SMEM { SMEM }
+  | MPORT { MPORT }
+  | INFER { INFER }
+  | READ { READ }
+  | WRITE { WRITE }
+  | RDWR { RDWR }
   ;
 
 // Parentheses are added as part of name because semantics require no space between primop and open parentheses
 // (And ANTLR either ignores whitespace or considers it everywhere)
 primop
-  : 'add(' { }
-  | 'sub(' { }
-  | 'mul(' { }
-  | 'div(' { }
-  | 'rem(' { }
-  | 'lt(' { }
-  | 'leq(' { }
-  | 'gt(' { }
-  | 'geq(' { }
-  | 'eq(' { }
-  | 'neq(' { }
-  | 'pad(' { }
-  | 'asUInt(' { }
-  | 'asSInt(' { }
-  | 'asClock(' { }
-  | 'shl(' { }
-  | 'shr(' { }
-  | 'dshl(' { }
-  | 'dshr(' { }
-  | 'cvt(' { }
-  | 'neg(' { }
-  | 'not(' { }
-  | 'and(' { }
-  | 'or(' { }
-  | 'xor(' { }
-  | 'andr(' { }
-  | 'orr(' { }
-  | 'xorr(' { }
-  | 'cat(' { }
-  | 'bits(' { }
-  | 'head(' { }
-  | 'tail(' { }
-  | 'asFixedPoint(' { }
-  | 'bpshl(' { }
-  | 'bpshr(' { }
-  | 'bpset(' { }
+  : ADD { ADD }
+  | SUB { SUB }
+  | MUL { MUL }
+  | DIV { DIV }
+  | REM { REM }
+  | LT { LT }
+  | LEQ { LEQ }
+  | GT { GT }
+  | GEQ { GEQ }
+  | EQ { EQ }
+  | NEQ { NEQ }
+  | PAD { PAD }
+  | ASUINT { ASUINT }
+  | ASSINT { ASSINT }
+  | ASCLOCK { ASCLOCK }
+  | SHL { SHL }
+  | SHR { SHR }
+  | DSHL { DSHL }
+  | DSHR { DSHR }
+  | CVT { CVT }
+  | NEG { NEG }
+  | NOT { NOT }
+  | AND { AND }
+  | OR { OR }
+  | XOR { XOR }
+  | ANDR { ANDR }
+  | ORR { ORR }
+  | XORR { XORR }
+  | CAT { CAT }
+  | BITS { BITS }
+  | HEAD { HEAD }
+  | TAIL { TAIL }
+  | ASFIXEDPOINT { ASFIXEDPOINT }
+  | BPSHL { BPSHL }
+  | BPSHR { BPSHR }
+  | BPSET { BPSET }
   ;
 
