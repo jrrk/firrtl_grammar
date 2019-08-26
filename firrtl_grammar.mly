@@ -33,15 +33,12 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 %token <string> HexLit
 %token <string> DoubleLit
 %token <string> RawString
-%token MODULE
-%token EXTMODULE
 %token CIRCUIT
-%token DEFNAME PARAMETER
-%token INPUT OUTPUT FLIP WIRE REG MEM CMEM SMEM MPORT INST NODE STOP PRINTF SKIP ATTACH IS INVALID OF WITH WHEN ELSE MUX VALIDIF
-%token INFER READ WRITE RDWR OLD NEW UNDEFINED CLOCK ANALOG FIXED 
-%token RESET DATA_TYPE DEPTH READ_LATENCY  WRITE_LATENCY READ_UNDER_WRITE READER WRITER READWRITER
-%token UInt SInt Fixed Clock Analog
-%token LCURLY RCURLY LBRACK RBRACK COLON PERIOD LESS GREATER EQUALS LPAREN RPAREN BECOMES1 BECOMES2 CONNECTS
+%token DEFNAME
+%token EOF_TOKEN
+%token DATA_TYPE READ_LATENCY  WRITE_LATENCY READ_UNDER_WRITE 
+%token PLING DOUBLEQUOTE HASH DOLLAR PERCENT AMPERSAND QUOTE STAR PLUS COMMA HYPHEN SLASH BACKSLASH SEMICOLON QUERY AT CARET UNDERSCORE BACKQUOTE VBAR TILDE
+  %token Analog
   %token ANALOG
   %token ADD
   %token AND
@@ -51,6 +48,8 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token ASSINT
   %token ASUINT
   %token ATTACH
+  %token BECOMES1
+  %token BECOMES2
   %token BITS
   %token BPSET
   %token BPSHL
@@ -58,6 +57,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token CAT
   %token Clock
   %token CLOCK
+  %token CONNECTS
   %token CMEM
   %token COLON
   %token CVT
@@ -67,21 +67,25 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token DSHR
   %token ELSE
   %token EQ
+  %token EQUALS
   %token EXTMODULE
   %token Fixed
   %token FIXED
   %token FLIP
   %token GEQ
+  %token GREATER
   %token GT
   %token HEAD
-  %token HexLit
   %token INFER
   %token INPUT
   %token INST
   %token INVALID
   %token IS
-  %token LCURLY
+  %token LBRACK
+  %token LBRACE
+  %token LPAREN
   %token LEQ
+  %token LESS
   %token LT
   %token MEM
   %token MODULE
@@ -100,18 +104,20 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token OUTPUT
   %token PAD
   %token PARAMETER
+  %token DOT
   %token PRINTF
+  %token RBRACK
+  %token RBRACE
+  %token RPAREN
   %token RDWR
   %token READ
   %token READER
   %token READWRITER
   %token REG
-  %token RelaxedId
   %token REM
   %token RESET
   %token SHL
   %token SHR
-  %token SignedInt
   %token SInt
   %token SKIP
   %token SMEM
@@ -120,7 +126,6 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token TAIL
   %token UInt
   %token UNDEFINED
-  %token UnsignedInt
   %token VALIDIF
   %token WHEN
   %token WIRE
@@ -194,7 +199,7 @@ type1
   | Fixed intlit_opt intlit2_opt { TUPLE3(Fixed,$2,$3) }
   | Clock { Clock }
   | Analog intlit_opt { TUPLE2(Analog,$2) }
-  | LCURLY field_lst RCURLY { TUPLE3(LCURLY,TLIST $2,RCURLY) }       // Bundle
+  | LBRACE field_lst RBRACE { TUPLE3(LBRACE,TLIST $2,RBRACE) }       // Bundle
   | type1 LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }   // Vector
   ;
 
@@ -233,7 +238,7 @@ moduleBlock
 
 simple_stmt_lst
   : { [] }
-  | simple_stmt_lst simple_stmt { $2 :: $1 }
+  | simple_stmt simple_stmt_lst { $1 :: $2 }
 
 simple_reset0:  RESET CONNECTS LPAREN exp exp RPAREN { TUPLE6(RESET, CONNECTS, LPAREN, $4, $5, RPAREN) }
 
@@ -306,7 +311,7 @@ simple_stmt
 */
 suite
   : simple_stmt { [ $1 ] }
-  | suite simple_stmt { $2 :: $1 }
+  | simple_stmt suite { $1 :: $2 }
   ;
 
 when1
@@ -346,8 +351,8 @@ exp
   : UInt intlit_opt LPAREN intLit RPAREN { TUPLE5(UInt, $2, LPAREN, $4, RPAREN) }
   | SInt intlit_opt LPAREN intLit RPAREN { TUPLE5(SInt, $2, LPAREN, $4, RPAREN) }
   | id  { $1 }   // Ref
-  | exp PERIOD fieldId { TUPLE3($1,PERIOD,$3) }
-  | exp PERIOD doubleLit  { TUPLE3($1,PERIOD,$3) } // TODO Workaround for #470
+  | exp DOT fieldId { TUPLE3($1,DOT,$3) }
+  | exp DOT doubleLit  { TUPLE3($1,DOT,$3) } // TODO Workaround for #470
   | exp LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
   | exp LBRACK exp RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
   | MUX exp exp exp RPAREN { TUPLE5(MUX,$2,$3,$4,RPAREN) }
@@ -390,7 +395,9 @@ doubleLit
 keywordAsId
   : CIRCUIT { CIRCUIT }
   | MODULE { MODULE}
-  | EXTMODULE { EXTMODULE }
+/*
+| EXTMODULE { EXTMODULE }
+*/
   | PARAMETER { PARAMETER }
   | INPUT { INPUT }
   | OUTPUT { OUTPUT }
