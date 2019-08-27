@@ -38,7 +38,6 @@ READ_UNDER_WRITE,  "read_under_write";
    Fixed, "fixed";
    FIXED, "fixed";
    FLIP, "flip";
-   GREATER, "greater";
    HEAD, "head";
    INFER, "infer";
    INPUT, "input";
@@ -315,7 +314,7 @@ rule token = parse
 { tok ( LBRACE ) }
 
 | '<'
-{ tok ( LESS ) }
+{ tok ( BRA ) }
 
 | ')'
 { tok ( RPAREN ) }
@@ -327,7 +326,7 @@ rule token = parse
 { tok ( RBRACE ) }
 
 | '>'
-{ tok ( GREATER ) }
+{ tok ( KET ) }
 
 | '*'
 { tok ( STAR ) }

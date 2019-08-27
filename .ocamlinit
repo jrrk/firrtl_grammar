@@ -1,10 +1,19 @@
 open Firrtl_grammar
 open Firrtl_main
 
-let tree = parse "example.fir";;
+let moderr = ref None
+let modtab = Hashtbl.create 255
+
+let tree = parse "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir";;
 
 let modules = function
-| TUPLE4 (CIRCUIT, Id "TestHarness", COLON, TLIST modlst) -> modlst
-| oth -> failwith "modules"
+| TUPLE5 (MODULE, Id nam, COLON, TLIST portlst, TLIST stmt_lst) -> Hashtbl.add modtab nam (portlst,stmt_lst)
+| TUPLE6 (EXTMODULE, Id nam, COLON, TLIST portlst, defname, TLIST stmt_lst) -> ()
+| oth -> moderr := Some oth; failwith "modules"
 
-let modlst = modules tree;;
+let circuit top = function
+| TUPLE4 (CIRCUIT, Id top, COLON, TLIST modlst) -> List.iter modules modlst
+| oth -> failwith "circuit"
+
+let _ = circuit "Top" tree;;
+let regfile = Hashtbl.find modtab "RegisterFile";;

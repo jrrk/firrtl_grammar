@@ -75,7 +75,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token FIXED
   %token FLIP
   %token GEQ
-  %token GREATER
+  %token KET
   %token GT
   %token HEAD
   %token INFER
@@ -87,7 +87,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token LBRACE
   %token LPAREN
   %token LEQ
-  %token LESS
+  %token BRA
   %token LT
   %token MEM
   %token MODULE
@@ -162,7 +162,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
  *------------------------------------------------------------------*/
 
 circuit
-  : CIRCUIT id COLON NEWLINE module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST $5) }
+  : CIRCUIT id COLON NEWLINE module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST (List.rev $5)) }
   ;
 
 module_lst
@@ -170,8 +170,8 @@ module_lst
   | module_lst module1 { $2 :: $1 }
   
 module1
-  : MODULE id COLON NEWLINE port_lst simple_stmt_lst { TUPLE5(MODULE,$2,COLON,TLIST $5,TLIST $6) }
-  | EXTMODULE id COLON NEWLINE port_lst defname_opt parameter_lst { TUPLE6(EXTMODULE,$2,COLON,TLIST $5,$6,TLIST $7) }
+  : MODULE id COLON NEWLINE port_lst simple_stmt_lst { TUPLE5(MODULE,$2,COLON,TLIST (List.rev $5),TLIST (List.rev $6)) }
+  | EXTMODULE id COLON NEWLINE port_lst defname_opt parameter_lst { TUPLE6(EXTMODULE,$2,COLON,TLIST (List.rev $5),$6,TLIST (List.rev $7)) }
   ;
 
 defname_opt
@@ -202,7 +202,7 @@ type1
   | Fixed intlit_opt intlit2_opt { TUPLE3(Fixed,$2,$3) }
   | Clock { Clock }
   | Analog intlit_opt { TUPLE2(Analog,$2) }
-  | LBRACE field_lst RBRACE { TUPLE3(LBRACE,TLIST $2,RBRACE) }       // Bundle
+  | LBRACE field_lst RBRACE { TUPLE3(LBRACE,TLIST (List.rev $2),RBRACE) }       // Bundle
   | type1 LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }   // Vector
   ;
 
@@ -215,10 +215,10 @@ field_lst
   | field_lst field { $2 :: $1 }
   
 intlit_opt
-  : LESS intLit GREATER { TUPLE3(LESS,$2,GREATER) }
+  : BRA intLit KET { TUPLE3(BRA,$2,KET) }
   
 intlit2_opt
-  : LESS LESS intLit GREATER GREATER { TUPLE5(LESS, LESS, $3, GREATER, GREATER) }
+  : BRA BRA intLit KET KET { TUPLE5(BRA, BRA, $3, KET, KET) }
   
 field
   : flip_opt fieldId COLON UInt { TUPLE4($1,$2,COLON,UInt) }
@@ -264,7 +264,7 @@ stmt
   | REG id COLON type2 id with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
   | REG id COLON type2 LBRACK intLit RBRACK id with_opt { TUPLE9(REG,$2,COLON,$4,LBRACK,$6,RBRACK,$8,$9) }
   | REG id COLON type1 exp with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
-  | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST $4) }
+  | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST (List.rev $4)) }
   | CMEM id COLON type1  { TUPLE4(CMEM,$2,COLON,$4) }
   | SMEM id COLON type1  { TUPLE4(SMEM,$2,COLON,$4) }
   | mdir MPORT id EQUALS id LBRACK exp RBRACK exp  { TUPLE9($1,MPORT,$3,EQUALS,$5,LBRACK,$7,RBRACK,$9) }
@@ -275,9 +275,9 @@ stmt
   | exp IS INVALID {TUPLE3($1,IS,INVALID) }
   | when1 { $1 }
   | STOP exp exp intLit RPAREN  { TUPLE5(STOP,$2,$3,$4,RPAREN) }
-  | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST $5,RPAREN) }
+  | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST (List.rev $5),RPAREN) }
   | SKIP  { SKIP}
-  | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST $3,RPAREN) }
+  | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST (List.rev $3),RPAREN) }
   ;
 
 exp_lst
@@ -297,9 +297,9 @@ memField
 	| READ_LATENCY CONNECTS intLit NEWLINE { TUPLE3(READ_LATENCY,CONNECTS,$3) }
 	| WRITE_LATENCY CONNECTS intLit NEWLINE { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
 	| READ_UNDER_WRITE CONNECTS ruw NEWLINE { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
-	| READER CONNECTS id_lst NEWLINE { TUPLE3(READER,CONNECTS,TLIST $3) }
-	| WRITER CONNECTS id_lst NEWLINE { TUPLE3(WRITER,CONNECTS,TLIST $3) }
-	| READWRITER CONNECTS id_lst NEWLINE { TUPLE3(READWRITER,CONNECTS,TLIST $3) }
+	| READER CONNECTS id_lst NEWLINE { TUPLE3(READER,CONNECTS,TLIST (List.rev $3)) }
+	| WRITER CONNECTS id_lst NEWLINE { TUPLE3(WRITER,CONNECTS,TLIST (List.rev $3)) }
+	| READWRITER CONNECTS id_lst NEWLINE { TUPLE3(READWRITER,CONNECTS,TLIST (List.rev $3)) }
 	;
 
 id_lst
@@ -326,7 +326,7 @@ when1
 
 suite_opt
   : { TNone }
-  | simple_stmt simple_stmt_lst { TLIST ($1 :: $2) }
+  | simple_stmt simple_stmt_lst { TLIST (List.rev ($1 :: $2)) }
   
 when_opt
   : when1 { $1 }
@@ -359,7 +359,7 @@ exp
   | exp LBRACK exp RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
   | MUX exp exp exp RPAREN { TUPLE5(MUX,$2,$3,$4,RPAREN) }
   | VALIDIF exp exp RPAREN { TUPLE4(VALIDIF,$2,$3,RPAREN) }
-  | primop exp_lst intLit_lst RPAREN { TUPLE3($1,TLIST $2,TLIST $3) }
+  | primop exp_lst intLit_lst RPAREN { TUPLE3($1,TLIST (List.rev $2),TLIST (List.rev $3)) }
   ;
 
 intLit_lst
