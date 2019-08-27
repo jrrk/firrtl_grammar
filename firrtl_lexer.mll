@@ -383,9 +383,7 @@ rule token = parse
 | '\n' [ ' ' ]* as indent
 {
 let ind = String.length indent in
-let lasti = !lastind in
-lastind := ind;
-tok ( if ind < lasti then UNINDENT else if ind > lasti then INDENT else NEWLINE )
+tok ( if ind < !lastind then (lastind := !lastind - 2; UNINDENT) else if ind > !lastind then (lastind := ind; INDENT) else NEWLINE )
 }
 
   | _ as c {

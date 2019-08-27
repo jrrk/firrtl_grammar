@@ -171,9 +171,15 @@ circuit
 module_lst
   : { [] }
   | module_lst module1 { $2 :: $1 }
-  
+/*
+| module_lst UNINDENT module1 { $3 :: $1 }
+*/
+
 module1
-  : MODULE id COLON INDENT port_lst simple_stmt_lst UNINDENT { TUPLE5(MODULE,$2,COLON,TLIST (List.rev $5),TLIST (List.rev $6)) }
+  : MODULE id COLON INDENT port_lst simple_stmt_lst UNINDENT {
+  (* This syntax gets rid of an initial blank line *)
+  let stmtlst = match List.rev $6 with TNone :: tl -> tl | oth -> oth in
+  TUPLE5(MODULE,$2,COLON,TLIST (List.rev $5),TLIST stmtlst) }
   | EXTMODULE id COLON INDENT port_lst defname_opt parameter_lst UNINDENT { TUPLE6(EXTMODULE,$2,COLON,TLIST (List.rev $5),$6,TLIST (List.rev $7)) }
   ;
 
@@ -242,7 +248,7 @@ parameter
 
 simple_stmt_lst
   : { [] }
-  | simple_stmt simple_stmt_lst { $1 :: $2 }
+  | simple_stmt_lst simple_stmt { $2 :: $1 }
 
 simple_reset0:  RESET CONNECTS LPAREN exp exp RPAREN { TUPLE6(RESET, CONNECTS, LPAREN, $4, $5, RPAREN) }
 
@@ -268,10 +274,11 @@ stmt
   | exp BECOMES2 exp  { TUPLE3(BECOMES2,$1,$3) }
   | exp BECOMES1 exp  { TUPLE3(BECOMES1,$1,$3) }
   | exp IS INVALID {TUPLE3($1,IS,INVALID) }
-  | when1 { $1 }
+  | WHEN exp COLON suite_opt ELSE COLON suite_opt { TUPLE7(WHEN, $2, COLON, $4, ELSE, COLON, $7) }
+  | WHEN exp COLON suite_opt { TUPLE4(WHEN, $2, COLON, $4) }
   | STOP exp exp intLit RPAREN  { TUPLE5(STOP,$2,$3,$4,RPAREN) }
   | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST (List.rev $5),RPAREN) }
-  | SKIP UNINDENT { SKIP }
+  | SKIP { SKIP }
   | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST (List.rev $3),RPAREN) }
   ;
 
@@ -304,7 +311,10 @@ id_lst
 simple_stmt
   : stmt { $1 }
   | stmt NEWLINE { $1 }
-  | NEWLINE { TNone }
+/*
+| stmt UNINDENT { $1 }
+*/
+| NEWLINE { TNone }
   ;
 
 /*
@@ -315,21 +325,11 @@ simple_stmt
         definitions. Let's call that _the_ "moduleBody". A "moduleBody" could possibly be empty
 */
 
-when1
-  : WHEN exp COLON INDENT suite_opt else_when_opt { TUPLE5(WHEN, $2, COLON, $5, $6) }
-  ;
-
 suite_opt
-  : { TNone }
-  | simple_stmt simple_stmt_lst { TLIST (List.rev ($1 :: $2)) }
-  
-when_opt
-  : when1 { $1 }
-  | COLON INDENT suite_opt { TUPLE2(COLON, $3) }
-
-else_when_opt
-  : { TNone }
-  | ELSE when_opt { TUPLE2(ELSE, $2) }
+  : INDENT simple_stmt_lst simple_stmt UNINDENT { TLIST (List.rev ($3 :: $2)) }
+/*
+| { TNone }
+*/
   
 mdir
   : INFER { INFER }
@@ -396,6 +396,7 @@ keywordAsId
   | EXTMODULE { EXTMODULE }
   | INPUT { INPUT }
   | WIRE { WIRE }
+  | WHEN { WHEN }
   | ELSE { ELSE }
 */
   | OUTPUT { OUTPUT }
@@ -419,7 +420,6 @@ keywordAsId
   | NODE { NODE }
   | IS { IS }
   | INVALID { INVALID }
-  | WHEN { WHEN }
   | STOP { STOP }
   | PRINTF { PRINTF }
   | SKIP { SKIP }

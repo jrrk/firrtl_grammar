@@ -1,6 +1,6 @@
 Y = ocamlyacc -v
-Y = menhir --trace
-O = firrtl_grammar.mli firrtl_lexer.ml firrtl_grammar.ml firrtl_main.ml
+# Y = menhir --trace
+O = firrtl_grammar.mli firrtl_lexer.ml firrtl_grammar.ml trial.ml firrtl_main.ml
 
 all: firrtl_main firrtl_opt firrtl_top
 

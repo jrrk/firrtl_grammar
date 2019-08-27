@@ -1,5 +1,6 @@
 open Firrtl_grammar
 open Firrtl_main
+open Trial
 
 let moderr = ref None
 let modtab = Hashtbl.create 255
@@ -16,4 +17,10 @@ let circuit top = function
 | oth -> failwith "circuit"
 
 let _ = circuit "Top" tree;;
-let regfile = Hashtbl.find modtab "RegisterFile";;
+let (portlst,stmtlst) = Hashtbl.find modtab "RegisterFile";;
+let st ix = List.nth stmtlst ix;;
+print_endline (string_of_int (List.length stmtlst));;
+
+let fd = open_out "trial.v";;
+Trial.trial fd portlst stmtlst;
+close_out fd;;
