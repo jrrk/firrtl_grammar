@@ -88,6 +88,8 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token LPAREN
   %token LEQ
   %token BRA
+  %token <int> BRAKET
+  %token <int> BRAKET2
   %token LT
   %token MEM
   %token MODULE
@@ -99,6 +101,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   %token NEW
   %token NODE
   %token NOT
+  %token NOFLIP
   %token OF
   %token OLD
   %token OR
@@ -206,19 +209,16 @@ type1
   | type1 LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }   // Vector
   ;
 
-type2
-  : UInt { UInt }
-  | SInt { SInt }
-  
 field_lst
   : { [] }
   | field_lst field { $2 :: $1 }
   
 intlit_opt
-  : BRA intLit KET { TUPLE3(BRA,$2,KET) }
+  : { TNone }
+  | BRA UnsignedInt KET { BRAKET $2 }
   
 intlit2_opt
-  : BRA BRA intLit KET KET { TUPLE5(BRA, BRA, $3, KET, KET) }
+  : BRA BRA UnsignedInt KET KET { BRAKET2 $3 }
   
 field
   : flip_opt fieldId COLON UInt { TUPLE4($1,$2,COLON,UInt) }
@@ -226,7 +226,7 @@ field
   ;
   
 flip_opt
-  : { TNone }
+  : { NOFLIP }
   | FLIP { FLIP }
   
 defname
@@ -258,11 +258,7 @@ reset_block
   ;
 
 stmt
-  : WIRE id COLON type2 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
-  | WIRE id COLON type2 LBRACK intLit RBRACK NEWLINE { TUPLE7(WIRE,$2,COLON,$4,LBRACK,$6,RBRACK) }
-  | WIRE id COLON type1 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
-  | REG id COLON type2 id with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
-  | REG id COLON type2 LBRACK intLit RBRACK id with_opt { TUPLE9(REG,$2,COLON,$4,LBRACK,$6,RBRACK,$8,$9) }
+  : WIRE id COLON type1 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
   | REG id COLON type1 exp with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
   | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST (List.rev $4)) }
   | CMEM id COLON type1  { TUPLE4(CMEM,$2,COLON,$4) }
