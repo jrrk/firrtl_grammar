@@ -162,7 +162,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
  *------------------------------------------------------------------*/
 
 circuit
-  : CIRCUIT id COLON NEWLINE module_lst { TUPLE4(CIRCUIT,$2,COLON,TLIST $5) }
+  : CIRCUIT id COLON NEWLINE module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST $5) }
   ;
 
 module_lst
@@ -404,10 +404,10 @@ keywordAsId
   | MODULE { MODULE}
   | EXTMODULE { EXTMODULE }
   | INPUT { INPUT }
-  | OUTPUT { OUTPUT }
   | WIRE { WIRE }
   | ELSE { ELSE }
 */
+  | OUTPUT { OUTPUT }
   | PARAMETER { PARAMETER }
   | UInt { UInt }
   | SInt { SInt }
