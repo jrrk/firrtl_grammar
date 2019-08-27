@@ -27,8 +27,8 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 %token <string> Id
 %token <string> RelaxedId
-%token <string> UnsignedInt
-%token <string> SignedInt
+%token <int> UnsignedInt
+%token <int> SignedInt
 %token <string> StringLit
 %token <string> HexLit
 %token <string> DoubleLit
@@ -36,8 +36,10 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 %token CIRCUIT
 %token DEFNAME
 %token EOF_TOKEN
+%token NEWLINE
 %token DATA_TYPE READ_LATENCY  WRITE_LATENCY READ_UNDER_WRITE 
-%token PLING DOUBLEQUOTE HASH DOLLAR PERCENT AMPERSAND QUOTE STAR PLUS COMMA HYPHEN SLASH BACKSLASH SEMICOLON QUERY AT CARET UNDERSCORE BACKQUOTE VBAR TILDE
+%token PLING DOUBLEQUOTE HASH DOLLAR PERCENT AMPERSAND QUOTE STAR
+%token PLUS COMMA HYPHEN SLASH BACKSLASH SEMICOLON QUERY AT CARET UNDERSCORE BACKQUOTE VBAR TILDE
   %token Analog
   %token ANALOG
   %token ADD
@@ -150,7 +152,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 %token <token*token*token*token*token*token*token*token*token*token*token*token> TUPLE12
 %token <token*token*token*token*token*token*token*token*token*token*token*token*token> TUPLE13
 %token <token*token*token*token*token*token*token*token*token*token*token*token*token*token> TUPLE14
-%type <token list> simple_stmt_lst id_lst suite
+%type <token list> simple_stmt_lst id_lst
 %type <token> circuit simple_stmt stmt reset_block suite_opt
 %start circuit
 %%
@@ -160,7 +162,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
  *------------------------------------------------------------------*/
 
 circuit
-  : CIRCUIT id COLON   module_lst { TUPLE4(CIRCUIT,$2,COLON,TLIST $4) }
+  : CIRCUIT id COLON NEWLINE module_lst { TUPLE4(CIRCUIT,$2,COLON,TLIST $5) }
   ;
 
 module_lst
@@ -168,13 +170,14 @@ module_lst
   | module_lst module1 { $2 :: $1 }
   
 module1
-  : MODULE id COLON   port_lst moduleBlock { TUPLE5(MODULE,$2,COLON,TLIST $4,$5) }
-  | EXTMODULE id COLON   port_lst defname_opt parameter_lst { TUPLE6(EXTMODULE,$2,COLON,TLIST $4,$5,TLIST $6) }
+  : MODULE id COLON NEWLINE port_lst simple_stmt_lst { TUPLE5(MODULE,$2,COLON,TLIST $5,TLIST $6) }
+  | EXTMODULE id COLON NEWLINE port_lst defname_opt parameter_lst { TUPLE6(EXTMODULE,$2,COLON,TLIST $5,$6,TLIST $7) }
   ;
 
 defname_opt
   : { TNone }
   | defname { $1 }
+  | NEWLINE defname { $2 }
   
 port_lst
   : { [] }
@@ -185,7 +188,7 @@ parameter_lst
   | parameter_lst parameter { $2 :: $1 }
   
 port
-  : dir id COLON type1  { TUPLE4($1,$2,COLON,$4)}
+  : dir id COLON type1 NEWLINE { TUPLE4($1,$2,COLON,$4) }
   ;
 
 dir
@@ -203,6 +206,10 @@ type1
   | type1 LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }   // Vector
   ;
 
+type2
+  : UInt { UInt }
+  | SInt { SInt }
+  
 field_lst
   : { [] }
   | field_lst field { $2 :: $1 }
@@ -214,7 +221,8 @@ intlit2_opt
   : LESS LESS intLit GREATER GREATER { TUPLE5(LESS, LESS, $3, GREATER, GREATER) }
   
 field
-  : flip_opt fieldId COLON type1 { TUPLE4($1,$2,COLON,$4) }
+  : flip_opt fieldId COLON UInt { TUPLE4($1,$2,COLON,UInt) }
+  | flip_opt fieldId COLON type1 { TUPLE4($1,$2,COLON,$4) }
   ;
   
 flip_opt
@@ -222,18 +230,15 @@ flip_opt
   | FLIP { FLIP }
   
 defname
-  : DEFNAME EQUALS id { TUPLE3(DEFNAME,EQUALS,$3) }
+  : DEFNAME EQUALS id NEWLINE { TUPLE3(DEFNAME,EQUALS,$3) }
   ;
 
 parameter
-  : PARAMETER id EQUALS intLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | PARAMETER id EQUALS stringLit { TUPLE4(PARAMETER,$2,EQUALS, $4) }
-  | PARAMETER id EQUALS doubleLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | PARAMETER id EQUALS rawString { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  ;
-
-moduleBlock
-  : simple_stmt_lst { TLIST $1 }
+  : PARAMETER id EQUALS intLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS stringLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS, $4) }
+  | PARAMETER id EQUALS doubleLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS rawString NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | NEWLINE { TNone }
   ;
 
 simple_stmt_lst
@@ -248,12 +253,16 @@ simple_reset
 	;
 
 reset_block
-	: simple_reset { $1 }
+	: simple_reset NEWLINE { $1 }
 	| LPAREN simple_reset RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
   ;
 
 stmt
-  : WIRE id COLON type1 { TUPLE4(WIRE,$2,COLON,$4) }
+  : WIRE id COLON type2 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
+  | WIRE id COLON type2 LBRACK intLit RBRACK NEWLINE { TUPLE7(WIRE,$2,COLON,$4,LBRACK,$6,RBRACK) }
+  | WIRE id COLON type1 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
+  | REG id COLON type2 id with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
+  | REG id COLON type2 LBRACK intLit RBRACK id with_opt { TUPLE9(REG,$2,COLON,$4,LBRACK,$6,RBRACK,$8,$9) }
   | REG id COLON type1 exp with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
   | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST $4) }
   | CMEM id COLON type1  { TUPLE4(CMEM,$2,COLON,$4) }
@@ -283,14 +292,14 @@ with_opt: { TNone }
   | WITH COLON reset_block { TUPLE3(WITH,COLON,$3) }
   
 memField
-	: DATA_TYPE CONNECTS type1 { TUPLE3(DATA_TYPE,CONNECTS,$3) }
-	| DEPTH CONNECTS intLit { TUPLE3(DEPTH,CONNECTS,$3) }
-	| READ_LATENCY CONNECTS intLit { TUPLE3(READ_LATENCY,CONNECTS,$3) }
-	| WRITE_LATENCY CONNECTS intLit { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
-	| READ_UNDER_WRITE CONNECTS ruw { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
-	| READER CONNECTS id_lst { TUPLE3(READER,CONNECTS,TLIST $3) }
-	| WRITER CONNECTS id_lst { TUPLE3(WRITER,CONNECTS,TLIST $3) }
-	| READWRITER CONNECTS id_lst { TUPLE3(READWRITER,CONNECTS,TLIST $3) }
+	: DATA_TYPE CONNECTS type1 NEWLINE { TUPLE3(DATA_TYPE,CONNECTS,$3) }
+	| DEPTH CONNECTS intLit NEWLINE { TUPLE3(DEPTH,CONNECTS,$3) }
+	| READ_LATENCY CONNECTS intLit NEWLINE { TUPLE3(READ_LATENCY,CONNECTS,$3) }
+	| WRITE_LATENCY CONNECTS intLit NEWLINE { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
+	| READ_UNDER_WRITE CONNECTS ruw NEWLINE { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
+	| READER CONNECTS id_lst NEWLINE { TUPLE3(READER,CONNECTS,TLIST $3) }
+	| WRITER CONNECTS id_lst NEWLINE { TUPLE3(WRITER,CONNECTS,TLIST $3) }
+	| READWRITER CONNECTS id_lst NEWLINE { TUPLE3(READWRITER,CONNECTS,TLIST $3) }
 	;
 
 id_lst
@@ -299,7 +308,8 @@ id_lst
   
 simple_stmt
   : stmt { $1 }
-  | { TNone }
+  | stmt NEWLINE { $1 }
+  | NEWLINE { TNone }
   ;
 
 /*
@@ -309,10 +319,6 @@ simple_stmt
     - modules on the other hand require a group of one or more statements without any indentation to follow "port"
         definitions. Let's call that _the_ "moduleBody". A "moduleBody" could possibly be empty
 */
-suite
-  : simple_stmt { [ $1 ] }
-  | simple_stmt suite { $1 :: $2 }
-  ;
 
 when1
   : WHEN exp COLON suite_opt else_when_opt { TUPLE5(WHEN, $2, COLON, $4, $5) }
@@ -320,7 +326,7 @@ when1
 
 suite_opt
   : { TNone }
-  | suite { TLIST $1 }
+  | simple_stmt simple_stmt_lst { TLIST ($1 :: $2) }
   
 when_opt
   : when1 { $1 }
@@ -394,20 +400,21 @@ doubleLit
 // Keywords that are also legal ids
 keywordAsId
   : CIRCUIT { CIRCUIT }
-  | MODULE { MODULE}
 /*
-| EXTMODULE { EXTMODULE }
-*/
-  | PARAMETER { PARAMETER }
+  | MODULE { MODULE}
+  | EXTMODULE { EXTMODULE }
   | INPUT { INPUT }
   | OUTPUT { OUTPUT }
+  | WIRE { WIRE }
+  | ELSE { ELSE }
+*/
+  | PARAMETER { PARAMETER }
   | UInt { UInt }
   | SInt { SInt }
   | CLOCK { CLOCK }
   | ANALOG { ANALOG }
   | FIXED { FIXED }
   | FLIP { FLIP }
-  | WIRE { WIRE }
   | REG { REG }
   | WITH { WITH }
   | RESET { RESET }
@@ -422,7 +429,6 @@ keywordAsId
   | IS { IS }
   | INVALID { INVALID }
   | WHEN { WHEN }
-  | ELSE { ELSE }
   | STOP { STOP }
   | PRINTF { PRINTF }
   | SKIP { SKIP }

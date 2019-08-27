@@ -18,25 +18,18 @@ WRITE_LATENCY, "write_latency";
 READ_UNDER_WRITE,  "read_under_write";      
    Analog, "analog";
    ANALOG, "analog";
-   ADD, "add";
    ANDR, "andr";
    ASCLOCK, "asclock";
    ASFIXEDPOINT, "asfixedpoint";
    ATTACH, "attach";
-   BECOMES1, "becomes1";
-   BECOMES2, "becomes2";
    BPSET, "bpset";
    BPSHL, "bpshl";
    BPSHR, "bpshr";
    Clock, "Clock";
-   CLOCK, "clock";
    CONNECTS, "connects";
    CMEM, "cmem";
    COLON, "colon";
    DEPTH, "depth";
-   DIV, "div";
-   DSHL, "dshl";
-   DSHR, "dshr";
    ELSE, "else";
    EQUALS, "equals";
    EXTMODULE, "extmodule";
@@ -44,25 +37,16 @@ READ_UNDER_WRITE,  "read_under_write";
    FIXED, "fixed";
    FLIP, "flip";
    GREATER, "greater";
-   GT, "gt";
    HEAD, "head";
    INFER, "infer";
    INPUT, "input";
    INST, "inst";
    INVALID, "invalid";
    IS, "is";
-   LBRACK, "lbrack";
-   LBRACE, "lbrace";
-   LPAREN, "lparen";
-   LESS, "less";
-   LT, "lt";
    MEM, "mem";
    MODULE, "module";
    MPORT, "mport";
-   MUL, "mul";
-   MUX, "mux";
    NEG, "neg";
-   NEQ, "neq";
    NEW, "new";
    NODE, "node";
    OF, "of";
@@ -71,25 +55,17 @@ READ_UNDER_WRITE,  "read_under_write";
    OUTPUT, "output";
    PAD, "pad";
    PARAMETER, "parameter";
-   DOT, "dot";
-   RBRACK, "rbrack";
-   RBRACE, "rbrace";
    READ_LATENCY, "read_LATENCY";
    READ_UNDER_WRITE, "read_UNDER_WRITE";
-   RPAREN, "rparen";
    RDWR, "rdwr";
    READ, "read";
    READER, "reader";
    READWRITER, "readwriter";
    REG, "reg";
-   REM, "rem";
    RESET, "reset";
-   SHL, "shl";
-   SInt, "sint";
+   SInt, "SInt";
    SKIP, "skip";
    SMEM, "smem";
-   SUB, "sub";
-   TAIL, "tail";
    UInt, "UInt";
    UNDEFINED, "undefined";
    VALIDIF, "validif";
@@ -140,7 +116,7 @@ let id = legalstartchar (legalidchar)*
 
 let relaxedid = (legalidchar)+
 
-let comment = ';' [^ '\r' '\n']*
+let comment = ';' [^ '\r' '\n']* '\n'
 
 let info = '@' [^ '\r' '\n']*
 
@@ -150,11 +126,21 @@ let becomes1 = '<' '-'
 
 let becomes2 = '<' '='
 
+let connects = '=' '>'
+
 let bits_ = 'b' 'i' 't' 's' '('
+
+let lt_ = 'l' 't' '('
+
+let eq_ = 'e' 'q' '('
+
+let neq_ = 'n' 'e' 'q' '('
 
 let leq_ = 'l' 'e' 'q' '('
 
 let geq_ = 'g' 'e' 'q' '('
+
+let gt_ = 'g' 't' '('
 
 let and_ = 'a' 'n' 'd' '('
 
@@ -164,19 +150,35 @@ let xor_ = 'x' 'o' 'r' '('
 
 let not_ = 'n' 'o' 't' '('
 
-let eq_ = 'e' 'q' '('
-
 let printf_ = 'p' 'r' 'i' 'n' 't' 'f' '('
 
 let stop_ = 's' 't' 'o' 'p' '('
+
+let tail_ = 't' 'a' 'i' 'l' '('
 
 let cat_ = 'c' 'a' 't' '('
 
 let cvt_ = 'c' 'v' 't' '('
 
+let mux_ = 'm' 'u' 'x' '('
+
+let add_ = 'a' 'd' 'd' '('
+
+let sub_ = 's' 'u' 'b' '('
+
+let mul_ = 'm' 'u' 'l' '('
+
+let div_ = 'd' 'i' 'v' '('
+
+let rem_ = 'r' 'e' 'm' '('
+
 let shr_ = 's' 'h' 'r' '('
 
+let shl_ = 's' 'h' 'l' '('
+
 let dshl_ = 'd' 's' 'h' 'l' '('
+
+let dshr_ = 'd' 's' 'h' 'r' '('
 
 let asuint_ = 'a' 's' 'U' 'I' 'n' 't' '('
 
@@ -187,10 +189,8 @@ rule token = parse
   | comment { token lexbuf }
   | whitespace { token lexbuf }
   | id as i { print_endline i; try keyword i with Not_found -> Id i }
-  | unsignedint as u { UnsignedInt u }
-  | signedint as s { SignedInt s }
-  | hexlit as h { HexLit h }
-  | stringlit as s { print_endline s; StringLit s }
+  | unsignedint as u { UnsignedInt (int_of_string u) }
+  | signedint as s { SignedInt (int_of_string s) }
   | doublelit as d { DoubleLit d }
   | relaxedid as r { print_endline r; RelaxedId r }
   | rawstring as r { print_endline r; RawString r }
@@ -202,6 +202,9 @@ rule token = parse
 | becomes2
 { tok ( BECOMES2 ) }
 
+| connects
+{ tok ( CONNECTS ) }
+
 | asuint_
 { tok ( ASUINT ) }
 
@@ -211,14 +214,23 @@ rule token = parse
 | bits_
 { tok ( BITS ) }
 
+| lt_
+{ tok ( LT ) }
+
+| eq_
+{ tok ( EQ ) }
+
+| neq_
+{ tok ( NEQ ) }
+
 | leq_
 { tok ( LEQ ) }
 
 | geq_
 { tok ( GEQ ) }
 
-| eq_
-{ tok ( EQ ) }
+| gt_
+{ tok ( GT ) }
 
 | and_
 { tok ( AND ) }
@@ -238,11 +250,35 @@ rule token = parse
 | stop_
 { tok ( STOP ) }
 
+| tail_
+{ tok ( TAIL ) }
+
 | cat_
 { tok ( CAT ) }
 
 | cvt_
 { tok ( CVT ) }
+
+| mux_
+{ tok ( MUX ) }
+
+| add_
+{ tok ( ADD ) }
+
+| sub_
+{ tok ( SUB ) }
+
+| mul_
+{ tok ( MUL ) }
+
+| div_
+{ tok ( DIV ) }
+
+| rem_
+{ tok ( REM ) }
+
+| shl_
+{ tok ( SHL ) }
 
 | shr_
 { tok ( SHR ) }
@@ -250,11 +286,15 @@ rule token = parse
 | dshl_
 { tok ( DSHL ) }
 
+| dshr_
+{ tok ( DSHR ) }
+
 | '!'
 { tok ( PLING ) }
 
-| '"'
-{ tok ( DOUBLEQUOTE ) }
+| '"' as c
+{ let s = String.make 1 c ^ dquote (Lexing.lexeme_start lexbuf) 1 lexbuf in print_endline s;
+ try Scanf.sscanf s "\"h%[0-9a-fA-F]" (fun h -> HexLit h) with _ -> StringLit s }
 
 | '#'
 { tok ( HASH ) }
@@ -282,6 +322,7 @@ rule token = parse
 
 | '<'
 { tok ( LESS ) }
+
 | ')'
 { tok ( RPAREN ) }
 
@@ -345,10 +386,20 @@ rule token = parse
 | '~'
 { tok ( TILDE ) }
 
-| '\012'
-{ token lexbuf }
+| '\n'
+{ tok ( NEWLINE ) }
 
   | _ as c {
-  if int_of_char c = 10 then token lexbuf else (
   let s = String.make 1 c in
-  print_endline s; RawString s) }
+  print_endline s; RawString s }
+
+and dquote start ix = parse
+| '"' as c
+    { String.make 1 c }
+| '\\' '"' as s
+    { String.sub s 1 1 ^ dquote start (ix+1) lexbuf }
+| eof
+    { failwith (Printf.sprintf "Unterminated \" string \" at offset %d." (start+ix)) }
+| _ as c
+    { String.make 1 c ^ dquote start (ix+1) lexbuf }
+
