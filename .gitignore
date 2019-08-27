@@ -1,8 +1,12 @@
 *~
 *.cmi
 *.cmo
+*.cmx
+*.o
 firrtl_grammar.ml
 firrtl_grammar.mli
 firrtl_grammar.output
 firrtl_lexer.ml
 firrtl_main
+firrtl_opt
+firrtl_top

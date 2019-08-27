@@ -5,6 +5,8 @@
 {
 open Firrtl_grammar
 
+let verbose = false
+
   let keyword =
     let h = Hashtbl.create 17 in
     List.iter 
@@ -80,14 +82,6 @@ READ_UNDER_WRITE,  "read_under_write";
 
 
 let tok arg = arg
-(*
-if !verbose then print_endline ( match arg with
-  | ID id -> id
-  | NUMBER n -> string_of_int n
-  | CHAR ch -> String.make 1 ch
-  | oth -> Ord.getstr oth );
-  arg
-*)
 }
 
 let unsignedint = [ '0' - '9' ]+
@@ -188,12 +182,12 @@ rule token = parse
   | info { token lexbuf }
   | comment { token lexbuf }
   | whitespace { token lexbuf }
-  | id as i { print_endline i; try keyword i with Not_found -> Id i }
+  | id as i { if verbose then print_endline i; try keyword i with Not_found -> Id i }
   | unsignedint as u { UnsignedInt (int_of_string u) }
   | signedint as s { SignedInt (int_of_string s) }
   | doublelit as d { DoubleLit d }
-  | relaxedid as r { print_endline r; RelaxedId r }
-  | rawstring as r { print_endline r; RawString r }
+  | relaxedid as r { if verbose then print_endline r; RelaxedId r }
+  | rawstring as r { if verbose then print_endline r; RawString r }
   | eof
       { tok ( EOF_TOKEN ) }
 | becomes1
@@ -293,7 +287,7 @@ rule token = parse
 { tok ( PLING ) }
 
 | '"' as c
-{ let s = String.make 1 c ^ dquote (Lexing.lexeme_start lexbuf) 1 lexbuf in print_endline s;
+{ let s = String.make 1 c ^ dquote (Lexing.lexeme_start lexbuf) 1 lexbuf in if verbose then print_endline s;
  try Scanf.sscanf s "\"h%[0-9a-fA-F]" (fun h -> HexLit h) with _ -> StringLit s }
 
 | '#'
@@ -391,7 +385,7 @@ rule token = parse
 
   | _ as c {
   let s = String.make 1 c in
-  print_endline s; RawString s }
+  if verbose then print_endline s; RawString s }
 
 and dquote start ix = parse
 | '"' as c

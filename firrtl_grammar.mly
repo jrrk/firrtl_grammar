@@ -336,10 +336,6 @@ else_when_opt
   : { TNone }
   | ELSE when_opt { TUPLE2(ELSE,$2) }
   
-info
-  : { TNone }
-  ;
-
 mdir
   : INFER { INFER }
   | READ { READ }

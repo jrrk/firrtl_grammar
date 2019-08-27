@@ -1,0 +1,10 @@
+open Firrtl_grammar
+open Firrtl_main
+
+let tree = parse "example.fir";;
+
+let modules = function
+| TUPLE4 (CIRCUIT, Id "TestHarness", COLON, TLIST modlst) -> modlst
+| oth -> failwith "modules"
+
+let modlst = modules tree;;

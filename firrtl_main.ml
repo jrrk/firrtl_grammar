@@ -25,5 +25,3 @@ let parse arg =
     Printexc.print_backtrace stderr;
     close_in ch;
   TNone
-
-let _ = parse Sys.argv.(1)
