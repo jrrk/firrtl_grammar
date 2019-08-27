@@ -6,6 +6,7 @@
 open Firrtl_grammar
 
 let verbose = false
+let lastind = ref 0
 
   let keyword =
     let h = Hashtbl.create 17 in
@@ -379,8 +380,13 @@ rule token = parse
 | '~'
 { tok ( TILDE ) }
 
-| '\n'
-{ tok ( NEWLINE ) }
+| '\n' [ ' ' ]* as indent
+{
+let ind = String.length indent in
+let lasti = !lastind in
+lastind := ind;
+tok ( if ind < lasti then UNINDENT else if ind > lasti then INDENT else NEWLINE )
+}
 
   | _ as c {
   let s = String.make 1 c in

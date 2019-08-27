@@ -36,7 +36,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 %token CIRCUIT
 %token DEFNAME
 %token EOF_TOKEN
-%token NEWLINE
+%token NEWLINE INDENT UNINDENT
 %token DATA_TYPE READ_LATENCY  WRITE_LATENCY READ_UNDER_WRITE 
 %token PLING DOUBLEQUOTE HASH DOLLAR PERCENT AMPERSAND QUOTE STAR
 %token PLUS COMMA HYPHEN SLASH BACKSLASH SEMICOLON QUERY AT CARET UNDERSCORE BACKQUOTE VBAR TILDE
@@ -165,7 +165,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
  *------------------------------------------------------------------*/
 
 circuit
-  : CIRCUIT id COLON NEWLINE module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST (List.rev $5)) }
+  : CIRCUIT id COLON INDENT module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST (List.rev $5)) }
   ;
 
 module_lst
@@ -173,8 +173,8 @@ module_lst
   | module_lst module1 { $2 :: $1 }
   
 module1
-  : MODULE id COLON NEWLINE port_lst simple_stmt_lst { TUPLE5(MODULE,$2,COLON,TLIST (List.rev $5),TLIST (List.rev $6)) }
-  | EXTMODULE id COLON NEWLINE port_lst defname_opt parameter_lst { TUPLE6(EXTMODULE,$2,COLON,TLIST (List.rev $5),$6,TLIST (List.rev $7)) }
+  : MODULE id COLON INDENT port_lst simple_stmt_lst UNINDENT { TUPLE5(MODULE,$2,COLON,TLIST (List.rev $5),TLIST (List.rev $6)) }
+  | EXTMODULE id COLON INDENT port_lst defname_opt parameter_lst UNINDENT { TUPLE6(EXTMODULE,$2,COLON,TLIST (List.rev $5),$6,TLIST (List.rev $7)) }
   ;
 
 defname_opt
@@ -221,8 +221,7 @@ intlit2_opt
   : BRA BRA UnsignedInt KET KET { BRAKET2 $3 }
   
 field
-  : flip_opt fieldId COLON UInt { TUPLE4($1,$2,COLON,UInt) }
-  | flip_opt fieldId COLON type1 { TUPLE4($1,$2,COLON,$4) }
+  : flip_opt fieldId COLON type1 { TUPLE4($1,$2,COLON,$4) }
   ;
   
 flip_opt
@@ -272,7 +271,7 @@ stmt
   | when1 { $1 }
   | STOP exp exp intLit RPAREN  { TUPLE5(STOP,$2,$3,$4,RPAREN) }
   | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST (List.rev $5),RPAREN) }
-  | SKIP  { SKIP}
+  | SKIP UNINDENT { SKIP }
   | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST (List.rev $3),RPAREN) }
   ;
 
@@ -317,7 +316,7 @@ simple_stmt
 */
 
 when1
-  : WHEN exp COLON suite_opt else_when_opt { TUPLE5(WHEN, $2, COLON, $4, $5) }
+  : WHEN exp COLON INDENT suite_opt else_when_opt { TUPLE5(WHEN, $2, COLON, $5, $6) }
   ;
 
 suite_opt
@@ -326,11 +325,11 @@ suite_opt
   
 when_opt
   : when1 { $1 }
-  | COLON suite_opt { TUPLE2(COLON, $2) }
+  | COLON INDENT suite_opt { TUPLE2(COLON, $3) }
 
 else_when_opt
   : { TNone }
-  | ELSE when_opt { TUPLE2(ELSE,$2) }
+  | ELSE when_opt { TUPLE2(ELSE, $2) }
   
 mdir
   : INFER { INFER }
