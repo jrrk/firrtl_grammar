@@ -3,6 +3,7 @@
 *.cmo
 *.cmx
 *.o
+*.v
 firrtl_grammar.ml
 firrtl_grammar.mli
 firrtl_grammar.output

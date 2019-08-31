@@ -2,25 +2,9 @@ open Firrtl_grammar
 open Firrtl_main
 open Trial
 
-let moderr = ref None
-let modtab = Hashtbl.create 255
-
-let tree = parse "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir";;
-
-let modules = function
-| TUPLE5 (MODULE, Id nam, COLON, TLIST portlst, TLIST stmt_lst) -> Hashtbl.add modtab nam (portlst,stmt_lst)
-| TUPLE6 (EXTMODULE, Id nam, COLON, TLIST portlst, defname, TLIST stmt_lst) -> ()
-| oth -> moderr := Some oth; failwith "modules"
-
-let circuit top = function
-| TUPLE4 (CIRCUIT, Id top, COLON, TLIST modlst) -> List.iter modules modlst
-| oth -> failwith "circuit"
-
-let _ = circuit "Top" tree;;
-let (portlst,stmtlst) = Hashtbl.find modtab "RegisterFile";;
-let st ix = List.nth stmtlst ix;;
-print_endline (string_of_int (List.length stmtlst));;
-
-let fd = open_out "trial.v";;
-Trial.trial fd portlst stmtlst;
-close_out fd;;
+(*
+let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "RegisterFile";;
+let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CtlPath";;
+let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CSRFile";;
+*)
+let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "";;

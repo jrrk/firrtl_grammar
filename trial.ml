@@ -1,119 +1,203 @@
+open Firrtl_lexer
 open Firrtl_grammar
 
-let othexp = ref None
+let cmemhash = Hashtbl.create 255
 
-let showflip = function
-| (OUTPUT,FLIP) -> "input"
-| (OUTPUT,NOFLIP) -> "output"
-| (INPUT,NOFLIP) -> "input"
-| (INPUT,FLIP) -> "output"
-| (_,_) -> "???"
+let othexp = ref None
+let othlst = ref []
+let whenlst = ref []
+
+let showflip' = function
+| (OUTPUT,FLIP) -> INPUT
+| (OUTPUT,NOFLIP) -> OUTPUT
+| (INPUT,NOFLIP) -> INPUT
+| (INPUT,FLIP) -> OUTPUT
+| (_,_) -> UNDEFINED
+
+let dirstr = function
+| OUTPUT -> "output"
+| INPUT -> "input"
+| UNDEFINED -> "wire"
+| _ -> "undef"
+
+let showflip dir flip = dirstr(showflip' (dir,flip))
+
+let rec subio fd delim dir recid = function
+           | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET 1)) ->
+	        Printf.fprintf fd "%s %s\t\t%s_%s" !delim (showflip dir flip) recid fieldid;
+           | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET wid)) ->
+	        Printf.fprintf fd "%s %s\t[%d:0]\t%s_%s" !delim (showflip dir flip) (wid-1) recid fieldid;
+           | TUPLE4 (flip, Id recid', COLON, TUPLE3 (LBRACE, TLIST iolst', RBRACE)) ->
+                List.iter (subio fd delim (showflip' (dir,flip)) (recid^"_"^recid')) iolst'
+           | TUPLE4 (flip, Id recid', COLON, TUPLE4 (TUPLE3 (LBRACE, TLIST iolst', RBRACE), LBRACK, ix, RBRACK)) -> 
+                List.iter (subio fd delim (showflip' (dir,flip)) (recid^"_"^recid')) iolst'
+           | oth -> othexp := Some oth; Printf.fprintf fd "%s??? 25" !delim
 
 let showio fd delim = function
-   | TUPLE4 (INPUT, Id id, COLON, Clock) -> Printf.fprintf fd "%s  input         %s" !delim id
-   | TUPLE4 (INPUT, RESET, COLON, TUPLE2 (UInt, BRAKET 1)) -> Printf.fprintf fd "%s  input         reset" !delim
+   | TUPLE4 (INPUT, Id id, COLON, Clock) ->
+       Printf.fprintf fd "%s input\t\t%s" !delim id
+   | TUPLE4 (INPUT, TUPLE1 kw, COLON, TUPLE2 (UInt, BRAKET 1)) ->
+       Printf.fprintf fd "%s input\t\t%s" !delim (asid kw)
    | TUPLE4 (dir, Id recid, COLON, TUPLE3 (LBRACE, TLIST iolst, RBRACE)) ->
-       List.iter (function
-           | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET 1)) ->
-	        Printf.fprintf fd "%s  %s          %s_%s" !delim (showflip (dir,flip)) recid fieldid;
-           | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET wid)) ->
-	        Printf.fprintf fd "%s  %s  [%d:0]  %s_%s" !delim (showflip (dir,flip)) (wid-1) recid fieldid;
-           | _ -> Printf.fprintf fd "%s???" !delim) iolst
-   | _ -> Printf.fprintf fd "%s???" !delim
+       List.iter (subio fd delim dir recid) iolst
+   | _ -> Printf.fprintf fd "%s??? 26" !delim
 
-let showdecl fd = function
-   | TUPLE4 (CMEM, Id cmem, COLON, TUPLE4 (TUPLE2 (UInt, BRAKET lft), LBRACK, UnsignedInt rght, RBRACK)) ->
-       Printf.fprintf fd "  reg [%d:0] %s [0:%d];\n" (lft-1) cmem (rght-1)
-   | _ -> ()
-
+let rec bits arg = 1 + (if arg > 1 then bits (arg lsr 1) else 0)
+   
 let vop = function
    | AND -> " & "
+   | OR -> " | "
+   | XOR -> " ^ "
+   | EQ -> " == "
    | NEQ -> " != "
-   | _ -> " ??? "
+   | GEQ -> " >= "
+   | LEQ -> " <= "
+   | LT -> " < "
+   | ADD -> " + "
+   | SUB -> " - "
+   | MUL -> " * "
+   | DIV -> " / "
+   | SHL -> " << "
+   | SHR -> " >> "
+   | DSHL -> " << "
+   | DSHR -> " << "
+   | _ -> " ??? 62 "
 
-let rec showexp fd = function
-   | Id id -> id
-   | TUPLE3 (Id lft, DOT, Id rght) -> lft^"."^rght
-   | TUPLE3 ((AND|NEQ) as op, TLIST exprlst, TLIST []) -> String.concat (vop op) (List.map (showexp fd) exprlst)
-   | TUPLE5 (UInt, BRAKET n, LPAREN, HexLit h, RPAREN) -> string_of_int n^"'h"^h
-   | TUPLE5 (MUX, sel, lft, rght, RPAREN) -> showexp fd sel^" ? "^showexp fd lft^" : "^showexp fd rght
-   | oth -> othexp := Some oth; failwith "showexp"
+let mop = function
+   | ASUINT -> "$unsigned"
+   | ASSINT -> "$signed"
+   | _ -> " ??? 67 "
    
+let rec showexp = function
+   | Id id -> id
+   | UnsignedInt n -> string_of_int n
+   | TUPLE3 (lft, DOT, rght) -> showexp lft^"_"^showexp rght
+   | TUPLE3 ((SHL|SHR) as op, TLIST [expr1], TLIST [expr2]) ->
+      showexp expr1^vop op^showexp expr2
+   | TUPLE3 ((AND|OR|XOR|EQ|NEQ|LEQ|GEQ|LT|ADD|SUB|MUL|DIV|DSHL|DSHR) as op, TLIST exprlst, TLIST []) ->
+      String.concat (vop op) (List.map (showexp) exprlst)
+   | TUPLE3 (CAT, TLIST exprlst, TLIST []) ->
+      "{"^String.concat "," (List.map (showexp) exprlst)^"}"
+   | TUPLE3 (TAIL, TLIST [expr], TLIST [UnsignedInt n]) -> "tail("^showexp expr^", "^string_of_int n^")"
+   | TUPLE3 (NOT, TLIST [expr], TLIST []) -> "!"^showexp expr
+   | TUPLE3 ((ASUINT|ASSINT) as op, TLIST [expr], TLIST []) -> mop op^"("^showexp expr^")"
+   | TUPLE5 (UInt, BRAKET n, LPAREN, HexLit h, RPAREN) -> string_of_int (4*String.length h)^"'h"^h
+   | TUPLE5 (MUX, sel, lft, rght, RPAREN) -> showexp sel^" ? "^showexp lft^" : "^showexp rght
+   | TUPLE3 (BITS,
+      TLIST [expr],
+      TLIST [UnsignedInt _; UnsignedInt _]) -> "BITS(...)"
+   | TUPLE4 (expr, LBRACK, ix, RBRACK) -> showexp expr^"["^showexp ix^"]"
+   | TUPLE1 arg -> asid arg
+   | oth -> othexp := Some oth; failwith "showexp 41"
+   
+let showdecl fd = function
+   | TUPLE4 (NODE, Id lft, _, _) ->
+       Printf.fprintf fd "  wire %s;\n" lft
+   | TUPLE4 (CMEM, Id cmem, COLON, TUPLE4 (TUPLE2 (UInt, BRAKET lft), LBRACK, UnsignedInt rght, RBRACK)) ->
+      Hashtbl.add cmemhash cmem (lft,rght);
+      Printf.fprintf fd "  reg [%d:0] %s [0:%d];\n" (lft-1) cmem (rght-1)
+   | TUPLE9 (INFER, MPORT, Id lft, EQUALS, Id cmem, LBRACK, expr, RBRACK, Id clock) ->
+       let (cwid,cdim) = Hashtbl.find cmemhash cmem in
+       Printf.fprintf fd "  wire [%d:0] %s_%s_data;\n" (cwid-1) cmem lft;
+       Printf.fprintf fd "  wire [%d:0] %s_%s_addr;\n" (bits(cdim-1)-1) cmem lft;
+   | TUPLE3 (expr, IS, INVALID) ->
+       Printf.fprintf fd "  wire %s;\n" (showexp expr)
+   | TUPLE6 (REG, Id id, COLON, _, _, _) ->
+       Printf.fprintf fd "  reg %s;\n" id
+   | TUPLE4 (WIRE, Id id, COLON, TUPLE2 (UInt, _)) ->
+       Printf.fprintf fd "  wire %s;\n" id
+   | TUPLE4 (WIRE, Id recid, COLON, TUPLE3 (LBRACE, TLIST reclst, RBRACE)) ->
+       let delim = ref "\n" in
+       List.iter (fun itm -> subio fd delim WIRE recid itm; delim := ";\n") reclst;
+       Printf.fprintf fd ";\n"
+   | TUPLE4 (INST, Id id, OF, Id kind) -> 
+       Printf.fprintf fd "%s %s();\n" kind id
+   | oth -> othexp := Some oth; failwith "showdecl 40"
+
 let showcont fd = function
    | TUPLE4 (NODE, Id lft, EQUALS, expr) ->
-       Printf.fprintf fd "  assign %s = %s;\n" lft (showexp fd expr)
-   | _ -> ()
+       Printf.fprintf fd "  assign %s = %s;\n" lft (showexp expr)
+   | TUPLE9 (INFER, MPORT, Id lft, EQUALS, Id cmem, LBRACK, expr, RBRACK, Id clock) ->
+       Printf.fprintf fd "  assign %s_%s_addr = %s;\n" cmem lft (showexp expr);
+       Printf.fprintf fd "  assign %s_%s_data = %s[%s_%s_addr];\n" cmem lft cmem cmem lft
+   | TUPLE3 (BECOMES2, lft, rght) ->
+       Printf.fprintf fd "  assign %s = %s;\n" (showexp lft) (showexp rght)
+   | TUPLE4 ((CMEM|WIRE|INST),_,_,_) -> ()
+   | TUPLE3 (_, IS, INVALID) -> ()
+   | TUPLE6 (REG, _, _, _, _, _) -> ()
+   | oth -> othexp := Some oth; failwith "showcont 64"
 
-let showwhen fd = function
-   | TUPLE4 (WHEN, Id ev, COLON, TLIST evlst) -> List.iter (function 
-       | TUPLE3 (BECOMES2, Id lft, expr) ->
-       Printf.fprintf fd "  %s <= %s;\n" lft (showexp fd expr)
-       | _ -> Printf.fprintf fd "ev ???\n") evlst
-   | _ -> ()
+let rec when' fd clk = function 
+       | TUPLE3 (BECOMES2, lft, expr) ->
+           Printf.fprintf fd "  %s <= %s;\n" (showexp lft) (showexp expr)
+       | TUPLE9 (INFER, MPORT, Id lft, EQUALS, Id cmem, LBRACK, expr, RBRACK, Id clock) ->
+           let _ = match !clk with
+             | None ->
+                 Printf.fprintf fd "  always @(posedge %s) begin\n" clock; clk := Some clock
+             | Some x when x <> clock ->
+                 Printf.fprintf fd "  end\n";
+                 Printf.fprintf fd "  always @(posedge %s) begin\n" clock; clk := Some clock
+             | _ -> () in
+           Printf.fprintf fd "      if(%s_%s_en & %s_%s_mask) begin\n" cmem lft cmem lft;
+           Printf.fprintf fd "        %s[%s_%s_addr] <= %s_%s_data;\n" cmem cmem lft cmem lft;
+           Printf.fprintf fd "    end\n";
+       | TUPLE4 (NODE, Id lft, EQUALS, expr) ->
+           Printf.fprintf fd "  assign %s = %s;\n" lft (showexp expr)
+       | TUPLE6 (PRINTF, clock, TUPLE5 _, StringLit _, TLIST itmlst, RPAREN) ->
+           Printf.fprintf fd "  $display(...);\n";
+       | TUPLE5 (STOP, clock, TUPLE5 _, UnsignedInt 1, RPAREN) ->
+           Printf.fprintf fd "  $stop;\n";
+       | TUPLE4 (WIRE, Id _, COLON, _) -> ()
+       | SKIP -> ()
+       | TUPLE4 (WHEN, ev, COLON, TLIST evlst) -> List.iter (when' fd clk) evlst
+       | TUPLE7 (WHEN, ev, COLON, TLIST evlst, ELSE, COLON, TLIST elslst) ->
+            List.iter (when' fd clk) evlst;
+            List.iter (when' fd clk) elslst
+       | TUPLE4 (INST, Id id, OF, Id kind) -> 
+            Printf.fprintf fd "%s %s();\n" kind id
+       | oth -> othexp := Some oth; failwith "showwhen 95"
 
-let trial fd portlst stmtlst =
-  Printf.fprintf fd "module RegisterFile(";
-  let delim = ref "\n" in List.iter (fun itm -> showio fd delim itm; delim := ",\n") portlst;
+and showwhen fd clk = function
+   | TUPLE4 (WHEN, ev, COLON, TLIST evlst) -> List.iter (when' fd clk) evlst
+   | TUPLE7 (WHEN, ev, COLON, TLIST evlst, ELSE, COLON, TLIST elslst) ->
+        List.iter (when' fd clk) evlst;
+        List.iter (when' fd clk) elslst
+   | oth -> othexp := Some oth; failwith "showwhen 112"
+
+let dfilt = function
+    | TUPLE4 (CMEM,_,_,_) -> true
+    | TUPLE4 (NODE,_,_,_) -> true
+    | TUPLE9 (INFER, MPORT, _, _, _, _, _, _, _) -> true
+    | TUPLE3 (TUPLE3 (_, DOT, _), IS, INVALID) -> true
+    | TUPLE6 (REG, Id _, COLON, _, Id _, _) -> true
+    | TUPLE4 (WIRE, Id _, COLON, _) -> true
+    | TUPLE4 (INST, Id _, OF, Id _) -> true
+    | _ -> false
+
+let cfilt = function
+    | TUPLE3 (BECOMES2, _, _) -> true
+    | oth -> dfilt oth
+
+let wfilt = function
+    | TUPLE4 (WHEN,_,_,_) -> true
+    | TUPLE7 (WHEN,_,_,_,_,_,_) -> true
+    | _ -> false
+
+let trial nam portlst stmtlst =
+  let decllst = List.filter dfilt stmtlst in
+  let whenlst',othlst' = List.partition wfilt stmtlst in
+  let contlst,othlst' = List.partition cfilt othlst' in
+  othlst := othlst';
+  if othlst' <> [] then failwith "othlst";
+  whenlst := whenlst';
+  let fd = open_out (nam^".v") in
+  Printf.fprintf fd "module %s(" nam;
+  let delim = ref "\n" in
+  List.iter (fun itm -> showio fd delim itm; delim := ",\n") portlst;
   Printf.fprintf fd "\n);\n";
-  List.iter (fun itm -> showdecl fd itm) stmtlst;
-  List.iter (fun itm -> showcont fd itm) stmtlst;
-  List.iter (fun itm -> showwhen fd itm) stmtlst;
-  Printf.fprintf fd "  reg [31:0] _RAND_0;\n";
-  Printf.fprintf fd "  wire [31:0] regfile__T_39_data;\n";
-  Printf.fprintf fd "  wire [4:0] regfile__T_39_addr;\n";
-  Printf.fprintf fd "  wire [31:0] regfile__T_44_data;\n";
-  Printf.fprintf fd "  wire [4:0] regfile__T_44_addr;\n";
-  Printf.fprintf fd "  wire [31:0] regfile__T_49_data;\n";
-  Printf.fprintf fd "  wire [4:0] regfile__T_49_addr;\n";
-  Printf.fprintf fd "  wire [31:0] regfile__T_32_data;\n";
-  Printf.fprintf fd "  wire [4:0] regfile__T_32_addr;\n";
-  Printf.fprintf fd "  wire  regfile__T_32_mask;\n";
-  Printf.fprintf fd "  wire  regfile__T_32_en;\n";
-  Printf.fprintf fd "  wire [31:0] regfile__T_36_data;\n";
-  Printf.fprintf fd "  wire [4:0] regfile__T_36_addr;\n";
-  Printf.fprintf fd "  wire  regfile__T_36_mask;\n";
-  Printf.fprintf fd "  wire  regfile__T_36_en;\n";
-  Printf.fprintf fd "  wire  _T_30;\n";
-  Printf.fprintf fd "  wire  _T_34;\n";
-  Printf.fprintf fd "  wire  _T_38;\n";
-  Printf.fprintf fd "  wire  _T_43;\n";
-  Printf.fprintf fd "`ifdef RANDOMIZE_GARBAGE_ASSIGN\n";
-  Printf.fprintf fd "`define RANDOMIZE\n";
-  Printf.fprintf fd "`endif\n";
-  Printf.fprintf fd "`ifdef RANDOMIZE_INVALID_ASSIGN\n";
-  Printf.fprintf fd "`define RANDOMIZE\n";
-  Printf.fprintf fd "`endif\n";
-  Printf.fprintf fd "`ifdef RANDOMIZE_REG_INIT\n";
-  Printf.fprintf fd "`define RANDOMIZE\n";
-  Printf.fprintf fd "`endif\n";
-  Printf.fprintf fd "`ifdef RANDOMIZE_MEM_INIT\n";
-  Printf.fprintf fd "`define RANDOMIZE\n";
-  Printf.fprintf fd "`endif\n";
-  Printf.fprintf fd "`ifndef RANDOM\n";
-  Printf.fprintf fd "`define RANDOM $random\n";
-  Printf.fprintf fd "`endif\n";
-  Printf.fprintf fd "`ifdef RANDOMIZE\n";
-  Printf.fprintf fd "  integer initvar;\n";
-  Printf.fprintf fd "  initial begin\n";
-  Printf.fprintf fd "    `ifdef INIT_RANDOM\n";
-  Printf.fprintf fd "      `INIT_RANDOM\n";
-  Printf.fprintf fd "    `endif\n";
-  Printf.fprintf fd "    `ifndef VERILATOR\n";
-  Printf.fprintf fd "      #0.002 begin end\n";
-  Printf.fprintf fd "    `endif\n";
-  Printf.fprintf fd "  _RAND_0 = {1{`RANDOM}};\n";
-  Printf.fprintf fd "  `ifdef RANDOMIZE_MEM_INIT\n";
-  Printf.fprintf fd "  for (initvar = 0; initvar < 32; initvar = initvar+1)\n";
-  Printf.fprintf fd "    regfile[initvar] = _RAND_0[31:0];\n";
-  Printf.fprintf fd "  `endif  <= regfile__T_32_data;\n";
-  Printf.fprintf fd "    end\n";
-  Printf.fprintf fd "    if(regfile__T_36_en & regfile__T_36_mask) begin\n";
-  Printf.fprintf fd "      regfile[regfile__T_36_addr] <= regfile__T_36_data;\n";
-  Printf.fprintf fd "    end\n";
-  Printf.fprintf fd "  end\n";
-  Printf.fprintf fd "`endif\n";
+  List.iter (fun itm -> showdecl fd itm) decllst;
+  List.iter (fun itm -> showcont fd itm) contlst;
+  let clk = ref None in List.iter (fun itm -> showwhen fd clk itm) whenlst';
+  if !clk <> None then Printf.fprintf fd "  end\n";
   Printf.fprintf fd "endmodule\n";
-  Printf.fprintf fd "\n";
-  ()
-
-
+  close_out fd

@@ -25,3 +25,15 @@ let parse arg =
     Printexc.print_backtrace stderr;
     close_in ch;
   TNone
+
+let modules modnam = function
+| TUPLE5 (MODULE, Id nam, COLON, TLIST portlst, TLIST stmtlst) ->
+  print_endline nam;
+  if (modnam = "") || (modnam=nam) then Trial.trial nam portlst stmtlst;
+| TUPLE6 (EXTMODULE, Id nam, COLON, TLIST portlst, defname, TLIST stmtlst) -> ()
+| oth -> failwith "modules"
+
+let iterate fil modnam =
+  match parse fil with
+    | TUPLE4 (CIRCUIT, Id top, COLON, TLIST modlst) -> List.iter (modules modnam) modlst
+    | oth -> failwith "circuit"

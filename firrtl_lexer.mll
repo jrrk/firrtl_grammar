@@ -8,10 +8,13 @@ open Firrtl_grammar
 let verbose = false
 let lastind = ref 0
 
-  let keyword =
-    let h = Hashtbl.create 17 in
-    List.iter 
-      (fun (k,s) -> Hashtbl.add h s k)
+let (keywh:(string, token) Hashtbl.t) = Hashtbl.create 255
+let (asidh:(token, string) Hashtbl.t) = Hashtbl.create 255
+let keyword = Hashtbl.find keywh
+let asid = Hashtbl.find asidh
+
+let _ = List.iter 
+      (fun (k,s) -> Hashtbl.add keywh s k; Hashtbl.add asidh k s)
       [
  CIRCUIT, "circuit";
  DEFNAME, "defname";
@@ -77,9 +80,7 @@ READ_UNDER_WRITE,  "read_under_write";
    WRITE, "write";
    WRITER, "writer";
    XORR, "xorr";
-      ];
-    fun s -> Hashtbl.find h s
-
+   ]
 
 let tok arg = arg
 }

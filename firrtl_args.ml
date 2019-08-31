@@ -1,3 +1,3 @@
 open Firrtl_main
 
-let tree = parse Sys.argv.(1)
+let _ = iterate Sys.argv.(1) ""
