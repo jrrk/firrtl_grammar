@@ -6,5 +6,7 @@ open Trial
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "RegisterFile";;
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CtlPath";;
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CSRFile";;
-*)
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "";;
+*)
+let _ = iterate "../lowrisc-chip-refresh-v0.6/rocket-chip/vsim/generated-src/freechips.rocketchip.system.DefaultConfig.fir" "";;
+

@@ -61,6 +61,7 @@ let vop = function
    | SHR -> " >> "
    | DSHL -> " << "
    | DSHR -> " << "
+   | CVT -> " cvt "
    | _ -> " ??? 62 "
 
 let mop = function
@@ -74,7 +75,7 @@ let rec showexp = function
    | TUPLE3 (lft, DOT, rght) -> showexp lft^"_"^showexp rght
    | TUPLE3 ((SHL|SHR) as op, TLIST [expr1], TLIST [expr2]) ->
       showexp expr1^vop op^showexp expr2
-   | TUPLE3 ((AND|OR|XOR|EQ|NEQ|LEQ|GEQ|LT|ADD|SUB|MUL|DIV|DSHL|DSHR) as op, TLIST exprlst, TLIST []) ->
+   | TUPLE3 ((AND|OR|XOR|EQ|NEQ|LEQ|GEQ|LT|ADD|SUB|MUL|DIV|DSHL|DSHR|CVT) as op, TLIST exprlst, TLIST []) ->
       String.concat (vop op) (List.map (showexp) exprlst)
    | TUPLE3 (CAT, TLIST exprlst, TLIST []) ->
       "{"^String.concat "," (List.map (showexp) exprlst)^"}"
@@ -106,6 +107,8 @@ let showdecl fd = function
        Printf.fprintf fd "  reg %s;\n" id
    | TUPLE4 (WIRE, Id id, COLON, TUPLE2 (UInt, _)) ->
        Printf.fprintf fd "  wire %s;\n" id
+   | TUPLE4 (WIRE, Id id, COLON, TUPLE4 (TUPLE2 (UInt, _), LBRACK, UnsignedInt ix, RBRACK)) ->
+       Printf.fprintf fd "  wire %s;\n" id
    | TUPLE4 (WIRE, Id recid, COLON, TUPLE3 (LBRACE, TLIST reclst, RBRACE)) ->
        let delim = ref "\n" in
        List.iter (fun itm -> subio fd delim WIRE recid itm; delim := ";\n") reclst;
@@ -120,6 +123,8 @@ let showcont fd = function
    | TUPLE9 (INFER, MPORT, Id lft, EQUALS, Id cmem, LBRACK, expr, RBRACK, Id clock) ->
        Printf.fprintf fd "  assign %s_%s_addr = %s;\n" cmem lft (showexp expr);
        Printf.fprintf fd "  assign %s_%s_data = %s[%s_%s_addr];\n" cmem lft cmem cmem lft
+   | TUPLE3 (BECOMES1, lft, rght) ->
+       Printf.fprintf fd "  assign %s = %s;\n" (showexp lft) (showexp rght)
    | TUPLE3 (BECOMES2, lft, rght) ->
        Printf.fprintf fd "  assign %s = %s;\n" (showexp lft) (showexp rght)
    | TUPLE4 ((CMEM|WIRE|INST),_,_,_) -> ()
@@ -155,6 +160,7 @@ let rec when' fd clk = function
             List.iter (when' fd clk) elslst
        | TUPLE4 (INST, Id id, OF, Id kind) -> 
             Printf.fprintf fd "%s %s();\n" kind id
+       | TUPLE3 (Id _, IS, INVALID) -> ()
        | oth -> othexp := Some oth; failwith "showwhen 95"
 
 and showwhen fd clk = function
@@ -168,14 +174,14 @@ let dfilt = function
     | TUPLE4 (CMEM,_,_,_) -> true
     | TUPLE4 (NODE,_,_,_) -> true
     | TUPLE9 (INFER, MPORT, _, _, _, _, _, _, _) -> true
-    | TUPLE3 (TUPLE3 (_, DOT, _), IS, INVALID) -> true
+    | TUPLE3 ((Id _ | TUPLE3 (_, DOT, _) | TUPLE1 _), IS, INVALID) -> true
     | TUPLE6 (REG, Id _, COLON, _, Id _, _) -> true
     | TUPLE4 (WIRE, Id _, COLON, _) -> true
     | TUPLE4 (INST, Id _, OF, Id _) -> true
     | _ -> false
 
 let cfilt = function
-    | TUPLE3 (BECOMES2, _, _) -> true
+    | TUPLE3 ((BECOMES1|BECOMES2), _, _) -> true
     | oth -> dfilt oth
 
 let wfilt = function
