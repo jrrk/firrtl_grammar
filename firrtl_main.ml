@@ -82,9 +82,12 @@ let parse arg =
     close_in ch;
   TNone
 
+let modhash = Hashtbl.create 255
+
 let modules modnam = function
 | TUPLE5 (MODULE, Id nam, COLON, TLIST portlst, TLIST stmtlst) ->
   print_endline nam;
+  Hashtbl.add modhash nam (portlst, stmtlst);
   if (modnam = "") || (modnam=nam) then Trial.trial nam portlst stmtlst;
 | TUPLE6 (EXTMODULE, Id nam, COLON, TLIST portlst, defname, TLIST stmtlst) -> ()
 | oth -> failwith "modules"

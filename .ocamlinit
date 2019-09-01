@@ -7,6 +7,10 @@ let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "Reg
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CtlPath";;
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "CSRFile";;
 let _ = iterate "../riscv-sodor/emulator/rv32_5stage/generated-src/Top.fir" "";;
-*)
 let _ = iterate "../lowrisc-chip-refresh-v0.6/rocket-chip/vsim/generated-src/freechips.rocketchip.system.DefaultConfig.fir" "";;
+*)
 
+let _ = iterate "../chisel-tutorial/test_run_dir/examples/Combinational/Combinational.fir" "";;
+
+Printf.printf "Module count %d\n" (Hashtbl.length modhash);;
+let mf = Hashtbl.find modhash;;

@@ -16,17 +16,25 @@ let showflip' = function
 
 let dirstr = function
 | OUTPUT -> "output"
-| INPUT -> "input"
-| UNDEFINED -> "wire"
+| INPUT -> "input "
+| UNDEFINED -> "wire  "
 | _ -> "undef"
+
+let idtab = Hashtbl.create 255
 
 let showflip dir flip = dirstr(showflip' (dir,flip))
 
 let rec subio fd delim dir recid = function
            | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET 1)) ->
-	        Printf.fprintf fd "%s %s\t\t%s_%s" !delim (showflip dir flip) recid fieldid;
+                let fid = recid^"_"^fieldid in
+                let dir' = showflip' (dir, flip) in
+                Hashtbl.add idtab fid (dir',1);
+	        Printf.fprintf fd "%s %s\t\t%s" !delim (dirstr dir') fid;
            | TUPLE4 (flip, Id fieldid, COLON, TUPLE2 (UInt, BRAKET wid)) ->
-	        Printf.fprintf fd "%s %s\t[%d:0]\t%s_%s" !delim (showflip dir flip) (wid-1) recid fieldid;
+                let fid = recid^"_"^fieldid in
+                let dir' = showflip' (dir, flip) in
+                Hashtbl.add idtab fid (dir',wid);
+	        Printf.fprintf fd "%s %s\t[%d:0]\t%s" !delim (dirstr dir') (wid-1) fid;
            | TUPLE4 (flip, Id recid', COLON, TUPLE3 (LBRACE, TLIST iolst', RBRACE)) ->
                 List.iter (subio fd delim (showflip' (dir,flip)) (recid^"_"^recid')) iolst'
            | TUPLE4 (flip, Id recid', COLON, TUPLE4 (TUPLE3 (LBRACE, TLIST iolst', RBRACE), LBRACK, ix, RBRACK)) -> 
@@ -34,10 +42,13 @@ let rec subio fd delim dir recid = function
            | oth -> othexp := Some oth; Printf.fprintf fd "%s??? 25" !delim
 
 let showio fd delim = function
-   | TUPLE4 (INPUT, Id id, COLON, Clock) ->
-       Printf.fprintf fd "%s input\t\t%s" !delim id
-   | TUPLE4 (INPUT, TUPLE1 kw, COLON, TUPLE2 (UInt, BRAKET 1)) ->
-       Printf.fprintf fd "%s input\t\t%s" !delim (asid kw)
+   | TUPLE4 (dir', Id id, COLON, Clock) ->
+       Hashtbl.add idtab id (dir', 1);
+       Printf.fprintf fd "%s %s\t\t%s" !delim (dirstr dir') id
+   | TUPLE4 (dir', TUPLE1 kw, COLON, TUPLE2 (UInt, BRAKET 1)) ->
+       let id' = asid kw in
+       Hashtbl.add idtab id' (dir', 1);
+       Printf.fprintf fd "%s %s\t\t%s" !delim (dirstr dir') id'
    | TUPLE4 (dir, Id recid, COLON, TUPLE3 (LBRACE, TLIST iolst, RBRACE)) ->
        List.iter (subio fd delim dir recid) iolst
    | _ -> Printf.fprintf fd "%s??? 26" !delim
@@ -79,7 +90,7 @@ let rec showexp = function
       String.concat (vop op) (List.map (showexp) exprlst)
    | TUPLE3 (CAT, TLIST exprlst, TLIST []) ->
       "{"^String.concat "," (List.map (showexp) exprlst)^"}"
-   | TUPLE3 (TAIL, TLIST [expr], TLIST [UnsignedInt n]) -> "tail("^showexp expr^", "^string_of_int n^")"
+   | TUPLE3 (TAIL, TLIST [expr], TLIST [UnsignedInt n]) -> showexp expr^" /* truncate "^string_of_int n^" bits(s) */ "
    | TUPLE3 (NOT, TLIST [expr], TLIST []) -> "!"^showexp expr
    | TUPLE3 ((ASUINT|ASSINT) as op, TLIST [expr], TLIST []) -> mop op^"("^showexp expr^")"
    | TUPLE5 (UInt, BRAKET n, LPAREN, HexLit h, RPAREN) -> string_of_int (4*String.length h)^"'h"^h
@@ -91,16 +102,50 @@ let rec showexp = function
    | TUPLE1 arg -> asid arg
    | oth -> othexp := Some oth; failwith "showexp 41"
    
+let rec getwid = function
+   | Id id -> if Hashtbl.mem idtab id then let (dir',wid) = Hashtbl.find idtab id in wid else 1
+   | UnsignedInt n -> n
+   | TUPLE3 (lft, DOT, rght) -> let id = showexp lft^"_"^showexp rght in
+      if Hashtbl.mem idtab id then let (dir',wid) = Hashtbl.find idtab id in wid else 1
+   | TUPLE3 (SHL, TLIST [expr1], TLIST [expr2]) ->
+      let wid1 = getwid expr1 (* and wid2 = getwid expr2 *) in
+      wid1
+   | TUPLE3 (SHR, TLIST [expr1], TLIST [expr2]) ->
+      let wid1 = getwid expr1 (* and wid2 = getwid expr2 *) in
+      wid1
+   | TUPLE3 ((AND|OR|XOR), TLIST exprlst, TLIST []) ->
+      List.fold_right (max) (List.map getwid (List.tl exprlst)) (getwid (List.hd exprlst))
+   | TUPLE3 ((EQ|NEQ|LEQ|GEQ|LT), TLIST exprlst, TLIST []) -> 1
+   | TUPLE3 ((ADD|SUB), TLIST exprlst, TLIST []) ->
+      1 + List.fold_right (max) (List.map getwid (List.tl exprlst)) (getwid (List.hd exprlst))
+   | TUPLE3 ((MUL|DIV|DSHL|DSHR|CVT), TLIST exprlst, TLIST []) ->
+      List.fold_right (max) (List.map getwid (List.tl exprlst)) (getwid (List.hd exprlst))
+   | TUPLE3 (CAT, TLIST exprlst, TLIST []) ->
+      List.fold_right (+) (List.map getwid (List.tl exprlst)) (getwid (List.hd exprlst))
+   | TUPLE3 (TAIL, TLIST [expr], TLIST [UnsignedInt n]) -> getwid expr - n
+   | TUPLE3 (NOT, TLIST [expr], TLIST []) -> 1
+   | TUPLE3 ((ASUINT|ASSINT), TLIST [expr], TLIST []) -> getwid expr
+   | TUPLE5 (UInt, BRAKET n, LPAREN, HexLit h, RPAREN) -> 4*String.length h
+   | TUPLE5 (MUX, sel, lft, rght, RPAREN) -> max (getwid lft) (getwid rght)
+   | TUPLE3 (BITS,
+      TLIST [expr],
+      TLIST [UnsignedInt hi; UnsignedInt lo]) -> hi-lo+1
+   | TUPLE4 (expr, LBRACK, ix, RBRACK) -> getwid expr
+   | TUPLE1 arg -> getwid (Id (asid arg))
+   | oth -> othexp := Some oth; failwith "showexp 41"
+   
 let showdecl fd = function
-   | TUPLE4 (NODE, Id lft, _, _) ->
-       Printf.fprintf fd "  wire %s;\n" lft
+   | TUPLE4 (NODE, Id lft, EQUALS, expr) ->
+       let wid = getwid expr in
+       Hashtbl.add idtab lft (UNDEFINED,wid);
+       Printf.fprintf fd "  wire [%d:0]\t%s;\n" (wid-1) lft
    | TUPLE4 (CMEM, Id cmem, COLON, TUPLE4 (TUPLE2 (UInt, BRAKET lft), LBRACK, UnsignedInt rght, RBRACK)) ->
       Hashtbl.add cmemhash cmem (lft,rght);
       Printf.fprintf fd "  reg [%d:0] %s [0:%d];\n" (lft-1) cmem (rght-1)
    | TUPLE9 (INFER, MPORT, Id lft, EQUALS, Id cmem, LBRACK, expr, RBRACK, Id clock) ->
        let (cwid,cdim) = Hashtbl.find cmemhash cmem in
-       Printf.fprintf fd "  wire [%d:0] %s_%s_data;\n" (cwid-1) cmem lft;
-       Printf.fprintf fd "  wire [%d:0] %s_%s_addr;\n" (bits(cdim-1)-1) cmem lft;
+       Printf.fprintf fd "  wire [%d:0]\t%s_%s_data;\n" (cwid-1) cmem lft;
+       Printf.fprintf fd "  wire [%d:0]\t%s_%s_addr;\n" (bits(cdim-1)-1) cmem lft;
    | TUPLE3 (expr, IS, INVALID) ->
        Printf.fprintf fd "  wire %s;\n" (showexp expr)
    | TUPLE6 (REG, Id id, COLON, _, _, _) ->
@@ -196,7 +241,7 @@ let trial nam portlst stmtlst =
   othlst := othlst';
   if othlst' <> [] then failwith "othlst";
   whenlst := whenlst';
-  let fd = open_out (nam^".v") in
+  let fd = open_out (nam^".sv") in
   Printf.fprintf fd "module %s(" nam;
   let delim = ref "\n" in
   List.iter (fun itm -> showio fd delim itm; delim := ",\n") portlst;
@@ -206,4 +251,6 @@ let trial nam portlst stmtlst =
   let clk = ref None in List.iter (fun itm -> showwhen fd clk itm) whenlst';
   if !clk <> None then Printf.fprintf fd "  end\n";
   Printf.fprintf fd "endmodule\n";
+  Hashtbl.iter (fun fid (dir',wid) ->
+    Printf.fprintf fd "/* %s\t%d\t%s */\n" (dirstr dir') wid fid) idtab;
   close_out fd
