@@ -1,0 +1,11 @@
+circuit Adder : @[:@2.0]
+  module Adder : @[:@3.2]
+    input clock : Clock @[:@4.4]
+    input reset : UInt<1> @[:@5.4]
+    input io_in0 : UInt<8> @[:@6.4]
+    input io_in1 : UInt<8> @[:@6.4]
+    output io_out : UInt<8> @[:@6.4]
+  
+    node _T_11 = add(io_in0, io_in1) @[Adder.scala 17:20:@8.4]
+    node _T_12 = tail(_T_11, 1) @[Adder.scala 17:20:@9.4]
+    io_out <= _T_12 @[Adder.scala 17:10:@10.4]

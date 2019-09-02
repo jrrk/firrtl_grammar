@@ -1,0 +1,15 @@
+circuit Parity : @[:@2.0]
+  module Parity : @[:@3.2]
+    input clock : Clock @[:@4.4]
+    input reset : UInt<1> @[:@5.4]
+    input io_in : UInt<1> @[:@6.4]
+    output io_out : UInt<1> @[:@6.4]
+  
+    reg state : UInt<1>, clock with :
+      reset => (UInt<1>("h0"), state) @[Parity.scala 13:23:@8.4]
+    node _T_10 = eq(state, UInt<1>("h0")) @[Parity.scala 15:17:@10.6]
+    node _GEN_0 = mux(_T_10, UInt<1>("h1"), UInt<1>("h0")) @[Parity.scala 15:29:@11.6]
+    node _GEN_1 = mux(io_in, _GEN_0, state) @[Parity.scala 14:16:@9.4]
+    node _T_11 = eq(state, UInt<1>("h1")) @[Parity.scala 18:20:@18.4]
+    io_out <= _T_11 @[Parity.scala 18:10:@19.4]
+    state <= mux(reset, UInt<1>("h0"), _GEN_1) @[Parity.scala 15:37:@12.8 Parity.scala 16:37:@15.8]

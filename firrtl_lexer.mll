@@ -18,10 +18,10 @@ let _ = List.iter
       [
  CIRCUIT, "circuit";
  DEFNAME, "defname";
-DATA_TYPE,"data_type";
-READ_LATENCY, "read_latency";
-WRITE_LATENCY, "write_latency";
-READ_UNDER_WRITE,  "read_under_write";      
+DATA_TYPE,"data-type";
+READ_LATENCY, "read-latency";
+WRITE_LATENCY, "write-latency";
+READ_UNDER_WRITE,  "read-under-write";      
    Analog, "analog";
    ANALOG, "analog";
    ANDR, "andr";
@@ -106,6 +106,7 @@ let legalstartchar = ['a'-'z' 'A'-'Z' '_']
 let legalidchar = legalstartchar
   | ['0'-'9']
   | '$'
+  | '-'
 
 let id = legalstartchar (legalidchar)*
 
@@ -178,6 +179,8 @@ let dshr_ = 'd' 's' 'h' 'r' '('
 let asuint_ = 'a' 's' 'U' 'I' 'n' 't' '('
 
 let assint_ = 'a' 's' 'S' 'I' 'n' 't' '('
+
+let validif_ = 'v' 'a' 'l' 'i' 'd' 'i' 'f' '('
 
 rule token = parse
   | info { token lexbuf }
@@ -284,6 +287,9 @@ rule token = parse
 | dshr_
 { tok ( DSHR ) }
 
+| validif_
+{ tok ( VALIDIF ) }
+
 | '!'
 { tok ( PLING ) }
 
@@ -384,7 +390,7 @@ rule token = parse
 | '\n' [ ' ' ]* as indent
 {
 let ind = String.length indent in
-tok ( if ind < !lastind then (lastind := !lastind - 2; UNINDENT) else if ind > !lastind then (lastind := ind; INDENT) else NEWLINE )
+tok ( if ind < !lastind then (lastind := ind; UNINDENT) else if ind > !lastind then (lastind := ind; INDENT) else NEWLINE )
 }
 
   | _ as c {

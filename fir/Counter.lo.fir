@@ -1,0 +1,17 @@
+circuit Counter : @[:@2.0]
+  module Counter : @[:@3.2]
+    input clock : Clock @[:@4.4]
+    input reset : UInt<1> @[:@5.4]
+    input io_inc : UInt<1> @[:@6.4]
+    input io_amt : UInt<4> @[:@6.4]
+    output io_tot : UInt<8> @[:@6.4]
+  
+    reg _T_14 : UInt<8>, clock with :
+      reset => (UInt<1>("h0"), _T_14) @[Counter.scala 18:20:@8.4]
+    node _T_15 = add(_T_14, io_amt) @[Counter.scala 19:35:@10.6]
+    node _T_16 = tail(_T_15, 1) @[Counter.scala 19:35:@11.6]
+    node _T_17 = gt(_T_16, UInt<8>("hff")) @[Counter.scala 15:11:@12.6]
+    node _T_19 = mux(_T_17, UInt<1>("h0"), _T_16) @[Counter.scala 15:8:@13.6]
+    node _GEN_0 = mux(io_inc, _T_19, _T_14) @[Counter.scala 19:15:@9.4]
+    io_tot <= _T_14 @[Counter.scala 32:10:@16.4]
+    _T_14 <= mux(reset, UInt<8>("h0"), _GEN_0) @[Counter.scala 19:19:@14.6]

@@ -1,0 +1,30 @@
+circuit EnableShiftRegister : @[:@2.0]
+  module EnableShiftRegister : @[:@3.2]
+    input clock : Clock @[:@4.4]
+    input reset : UInt<1> @[:@5.4]
+    input io_in : UInt<4> @[:@6.4]
+    input io_shift : UInt<1> @[:@6.4]
+    output io_out : UInt<4> @[:@6.4]
+  
+    reg r0 : UInt<4>, clock with :
+      reset => (UInt<1>("h0"), r0) @[EnableShiftRegister.scala 12:15:@8.4]
+    reg r1 : UInt<4>, clock with :
+      reset => (UInt<1>("h0"), r1) @[EnableShiftRegister.scala 13:15:@9.4]
+    reg r2 : UInt<4>, clock with :
+      reset => (UInt<1>("h0"), r2) @[EnableShiftRegister.scala 14:15:@10.4]
+    reg r3 : UInt<4>, clock with :
+      reset => (UInt<1>("h0"), r3) @[EnableShiftRegister.scala 15:15:@11.4]
+    node _T_15 = bits(reset, 0, 0) @[EnableShiftRegister.scala 16:14:@12.4]
+    node _GEN_0 = mux(io_shift, io_in, r0) @[EnableShiftRegister.scala 21:25:@20.6]
+    node _GEN_1 = mux(io_shift, r0, r1) @[EnableShiftRegister.scala 21:25:@20.6]
+    node _GEN_2 = mux(io_shift, r1, r2) @[EnableShiftRegister.scala 21:25:@20.6]
+    node _GEN_3 = mux(io_shift, r2, r3) @[EnableShiftRegister.scala 21:25:@20.6]
+    node _GEN_4 = mux(_T_15, UInt<4>("h0"), _GEN_0) @[EnableShiftRegister.scala 16:22:@13.4]
+    node _GEN_5 = mux(_T_15, UInt<4>("h0"), _GEN_1) @[EnableShiftRegister.scala 16:22:@13.4]
+    node _GEN_6 = mux(_T_15, UInt<4>("h0"), _GEN_2) @[EnableShiftRegister.scala 16:22:@13.4]
+    node _GEN_7 = mux(_T_15, UInt<4>("h0"), _GEN_3) @[EnableShiftRegister.scala 16:22:@13.4]
+    io_out <= r3 @[EnableShiftRegister.scala 27:10:@26.4]
+    r0 <= _GEN_4 @[EnableShiftRegister.scala 17:8:@14.6 EnableShiftRegister.scala 22:8:@21.8]
+    r1 <= _GEN_5 @[EnableShiftRegister.scala 18:8:@15.6 EnableShiftRegister.scala 23:8:@22.8]
+    r2 <= _GEN_6 @[EnableShiftRegister.scala 19:8:@16.6 EnableShiftRegister.scala 24:8:@23.8]
+    r3 <= _GEN_7 @[EnableShiftRegister.scala 20:8:@17.6 EnableShiftRegister.scala 25:8:@24.8]

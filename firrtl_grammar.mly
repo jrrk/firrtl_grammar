@@ -159,7 +159,7 @@ limitations under the License.
  *------------------------------------------------------------------*/
 
 circuit
-  : CIRCUIT id COLON INDENT module_lst EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST (List.rev $5)) }
+  : CIRCUIT id COLON INDENT module_lst UNINDENT EOF_TOKEN { TUPLE4(CIRCUIT,$2,COLON,TLIST (List.rev $5)) }
   ;
 
 module_lst
@@ -188,7 +188,8 @@ port_lst
   
 parameter_lst
   : { [] }
-  | parameter_lst parameter { $2 :: $1 }
+  | parameter NEWLINE parameter_lst { $1 :: $3 }
+  | parameter parameter_lst { $1 :: $2 }
   
 port
   : dir id COLON type1 NEWLINE { TUPLE4($1,$2,COLON,$4) }
@@ -229,15 +230,15 @@ flip_opt
   | FLIP { FLIP }
   
 defname
-  : DEFNAME EQUALS id NEWLINE { TUPLE3(DEFNAME,EQUALS,$3) }
+  : DEFNAME EQUALS id { TUPLE3(DEFNAME,EQUALS,$3) }
   ;
 
 parameter
-  : PARAMETER id EQUALS intLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | PARAMETER id EQUALS stringLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS, $4) }
-  | PARAMETER id EQUALS doubleLit NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | PARAMETER id EQUALS rawString NEWLINE { TUPLE4(PARAMETER,$2,EQUALS,$4) }
-  | NEWLINE { TNone }
+  : PARAMETER id EQUALS intLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS stringLit { TUPLE4(PARAMETER,$2,EQUALS, $4) }
+  | PARAMETER id EQUALS doubleLit { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | PARAMETER id EQUALS rawString { TUPLE4(PARAMETER,$2,EQUALS,$4) }
+  | { TNone }
   ;
 
 simple_stmt_lst
@@ -252,26 +253,26 @@ simple_reset
 	;
 
 reset_block
-	: simple_reset NEWLINE { $1 }
+	: simple_reset { $1 }
 	| LPAREN simple_reset RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
   ;
 
 stmt
   : WIRE id COLON type1 NEWLINE { TUPLE4(WIRE,$2,COLON,$4) }
   | REG id COLON type1 exp with_opt { TUPLE6(REG,$2,COLON,$4,$5,$6) }
-  | MEM id COLON memField_lst { TUPLE4(MEM,$2,COLON,TLIST (List.rev $4)) }
-  | CMEM id COLON type1  { TUPLE4(CMEM,$2,COLON,$4) }
-  | SMEM id COLON type1  { TUPLE4(SMEM,$2,COLON,$4) }
-  | mdir MPORT id EQUALS id LBRACK exp RBRACK exp  { TUPLE9($1,MPORT,$3,EQUALS,$5,LBRACK,$7,RBRACK,$9) }
-  | INST id OF id  { TUPLE4(INST,$2,OF,$4) }
+  | MEM id COLON INDENT memField_lst UNINDENT { TUPLE4(MEM,$2,COLON,TLIST (List.rev $5)) }
+  | CMEM id COLON type1 { TUPLE4(CMEM,$2,COLON,$4) }
+  | SMEM id COLON type1 { TUPLE4(SMEM,$2,COLON,$4) }
+  | mdir MPORT id EQUALS id LBRACK exp RBRACK exp { TUPLE9($1,MPORT,$3,EQUALS,$5,LBRACK,$7,RBRACK,$9) }
+  | INST id OF id { TUPLE4(INST,$2,OF,$4) }
   | NODE id EQUALS exp { TUPLE4(NODE,$2,EQUALS,$4) }
-  | exp BECOMES2 exp  { TUPLE3(BECOMES2,$1,$3) }
-  | exp BECOMES1 exp  { TUPLE3(BECOMES1,$1,$3) }
+  | exp BECOMES2 exp { TUPLE3(BECOMES2,$1,$3) }
+  | exp BECOMES1 exp { TUPLE3(BECOMES1,$1,$3) }
   | exp IS INVALID {TUPLE3($1,IS,INVALID) }
   | WHEN exp COLON suite_opt ELSE COLON suite_opt { TUPLE7(WHEN, $2, COLON, $4, ELSE, COLON, $7) }
   | WHEN exp COLON suite_opt { TUPLE4(WHEN, $2, COLON, $4) }
-  | STOP exp exp intLit RPAREN  { TUPLE5(STOP,$2,$3,$4,RPAREN) }
-  | PRINTF exp exp stringLit exp_lst RPAREN  { TUPLE6(PRINTF,$2,$3,$4,TLIST (List.rev $5),RPAREN) }
+  | STOP exp exp intLit RPAREN { TUPLE5(STOP,$2,$3,$4,RPAREN) }
+  | PRINTF exp exp stringLit exp_lst RPAREN { TUPLE6(PRINTF,$2,$3,$4,TLIST (List.rev $5),RPAREN) }
   | SKIP { SKIP }
   | ATTACH LPAREN exp_lst RPAREN { TUPLE4(ATTACH,LPAREN,TLIST (List.rev $3),RPAREN) }
   ;
@@ -283,19 +284,21 @@ exp_lst
 memField_lst
   : { [] }
   | memField_lst memField { $2 :: $1 }
+  | memField_lst memField NEWLINE { $2 :: $1 }
 
 with_opt: { TNone }
   | WITH COLON reset_block { TUPLE3(WITH,COLON,$3) }
+  | WITH COLON INDENT reset_block UNINDENT { TUPLE3(WITH,COLON,$4) }
   
 memField
-	: DATA_TYPE CONNECTS type1 NEWLINE { TUPLE3(DATA_TYPE,CONNECTS,$3) }
-	| DEPTH CONNECTS intLit NEWLINE { TUPLE3(DEPTH,CONNECTS,$3) }
-	| READ_LATENCY CONNECTS intLit NEWLINE { TUPLE3(READ_LATENCY,CONNECTS,$3) }
-	| WRITE_LATENCY CONNECTS intLit NEWLINE { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
-	| READ_UNDER_WRITE CONNECTS ruw NEWLINE { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
-	| READER CONNECTS id_lst NEWLINE { TUPLE3(READER,CONNECTS,TLIST (List.rev $3)) }
-	| WRITER CONNECTS id_lst NEWLINE { TUPLE3(WRITER,CONNECTS,TLIST (List.rev $3)) }
-	| READWRITER CONNECTS id_lst NEWLINE { TUPLE3(READWRITER,CONNECTS,TLIST (List.rev $3)) }
+	: DATA_TYPE CONNECTS type1 { TUPLE3(DATA_TYPE,CONNECTS,$3) }
+	| DEPTH CONNECTS intLit { TUPLE3(DEPTH,CONNECTS,$3) }
+	| READ_LATENCY CONNECTS intLit { TUPLE3(READ_LATENCY,CONNECTS,$3) }
+	| WRITE_LATENCY CONNECTS intLit { TUPLE3(WRITE_LATENCY,CONNECTS,$3) }
+	| READ_UNDER_WRITE CONNECTS ruw { TUPLE3(READ_UNDER_WRITE,CONNECTS,$3) }
+	| READER CONNECTS id_lst { TUPLE3(READER,CONNECTS,TLIST (List.rev $3)) }
+	| WRITER CONNECTS id_lst { TUPLE3(WRITER,CONNECTS,TLIST (List.rev $3)) }
+	| READWRITER CONNECTS id_lst { TUPLE3(READWRITER,CONNECTS,TLIST (List.rev $3)) }
 	;
 
 id_lst
@@ -341,9 +344,9 @@ ruw
 exp
   : UInt intlit_opt LPAREN intLit RPAREN { TUPLE5(UInt, $2, LPAREN, $4, RPAREN) }
   | SInt intlit_opt LPAREN intLit RPAREN { TUPLE5(SInt, $2, LPAREN, $4, RPAREN) }
-  | id  { $1 }   // Ref
+  | id { $1 }   // Ref
   | exp DOT fieldId { TUPLE3($1,DOT,$3) }
-  | exp DOT doubleLit  { TUPLE3($1,DOT,$3) } // TODO Workaround for #470
+  | exp DOT doubleLit { TUPLE3($1,DOT,$3) } // TODO Workaround for #470
   | exp LBRACK intLit RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
   | exp LBRACK exp RBRACK { TUPLE4($1,LBRACK,$3,RBRACK) }
   | MUX exp exp exp RPAREN { TUPLE5(MUX,$2,$3,$4,RPAREN) }
@@ -404,7 +407,6 @@ keywordAsId
   | REG { TUPLE1 REG }
   | WITH { TUPLE1 WITH }
   | RESET { TUPLE1 RESET }
-  | MEM { TUPLE1 MEM }
   | DEPTH { TUPLE1 DEPTH }
   | READER { TUPLE1 READER }
   | WRITER { TUPLE1 WRITER }
@@ -422,6 +424,7 @@ keywordAsId
   | UNDEFINED { TUPLE1 UNDEFINED }
   | MUX { TUPLE1 MUX }
   | VALIDIF { TUPLE1 VALIDIF }
+  | MEM { TUPLE1 MEM }
   | CMEM { TUPLE1 CMEM }
   | SMEM { TUPLE1 SMEM }
   | MPORT { TUPLE1 MPORT }

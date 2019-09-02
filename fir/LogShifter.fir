@@ -1,0 +1,47 @@
+;buildInfoPackage: chisel3, version: 3.1.8, scalaVersion: 2.11.12, sbtVersion: 1.1.1, builtAtString: 2019-07-08 17:44:42.884, builtAtMillis: 1562607882884
+circuit LogShifter : 
+  module LogShifter : 
+    input clock : Clock
+    input reset : UInt<1>
+    output io : {flip in : UInt<16>, flip shamt : UInt<4>, out : UInt<16>}
+    
+    reg s0 : UInt<16>, clock with : (reset => (reset, UInt<16>("h00"))) @[LogShifter.scala 12:19]
+    node _T_13 = bits(io.shamt, 3, 3) @[LogShifter.scala 13:17]
+    node _T_15 = eq(_T_13, UInt<1>("h01")) @[LogShifter.scala 13:21]
+    when _T_15 : @[LogShifter.scala 13:30]
+      node _T_17 = dshl(io.in, UInt<4>("h08")) @[LogShifter.scala 14:17]
+      s0 <= _T_17 @[LogShifter.scala 14:8]
+      skip @[LogShifter.scala 13:30]
+    else : @[LogShifter.scala 15:16]
+      s0 <= io.in @[LogShifter.scala 16:8]
+      skip @[LogShifter.scala 15:16]
+    reg s1 : UInt<16>, clock with : (reset => (reset, UInt<16>("h00"))) @[LogShifter.scala 18:19]
+    node _T_20 = bits(io.shamt, 2, 2) @[LogShifter.scala 19:17]
+    node _T_22 = eq(_T_20, UInt<1>("h01")) @[LogShifter.scala 19:21]
+    when _T_22 : @[LogShifter.scala 19:30]
+      node _T_24 = dshl(s0, UInt<3>("h04")) @[LogShifter.scala 20:14]
+      s1 <= _T_24 @[LogShifter.scala 20:8]
+      skip @[LogShifter.scala 19:30]
+    else : @[LogShifter.scala 21:16]
+      s1 <= s0 @[LogShifter.scala 22:8]
+      skip @[LogShifter.scala 21:16]
+    reg s2 : UInt<16>, clock with : (reset => (reset, UInt<16>("h00"))) @[LogShifter.scala 24:19]
+    node _T_27 = bits(io.shamt, 1, 1) @[LogShifter.scala 25:17]
+    node _T_29 = eq(_T_27, UInt<1>("h01")) @[LogShifter.scala 25:21]
+    when _T_29 : @[LogShifter.scala 25:30]
+      node _T_31 = dshl(s1, UInt<2>("h02")) @[LogShifter.scala 26:14]
+      s2 <= _T_31 @[LogShifter.scala 26:8]
+      skip @[LogShifter.scala 25:30]
+    else : @[LogShifter.scala 27:16]
+      s2 <= s1 @[LogShifter.scala 28:8]
+      skip @[LogShifter.scala 27:16]
+    node _T_32 = bits(io.shamt, 1, 1) @[LogShifter.scala 30:17]
+    node _T_34 = eq(_T_32, UInt<1>("h01")) @[LogShifter.scala 30:21]
+    when _T_34 : @[LogShifter.scala 30:30]
+      node _T_36 = dshl(s2, UInt<1>("h01")) @[LogShifter.scala 31:18]
+      io.out <= _T_36 @[LogShifter.scala 31:12]
+      skip @[LogShifter.scala 30:30]
+    else : @[LogShifter.scala 32:16]
+      io.out <= s2 @[LogShifter.scala 33:12]
+      skip @[LogShifter.scala 32:16]
+    

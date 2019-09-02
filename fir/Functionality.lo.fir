@@ -1,0 +1,13 @@
+circuit Functionality : @[:@2.0]
+  module Functionality : @[:@3.2]
+    input clock : Clock @[:@4.4]
+    input reset : UInt<1> @[:@5.4]
+    input io_x : UInt<16> @[:@6.4]
+    input io_y : UInt<16> @[:@6.4]
+    output io_z : UInt<16> @[:@6.4]
+  
+    node _T_11 = and(io_x, io_y) @[Functionality.scala 13:8:@8.4]
+    node _T_12 = not(io_x) @[Functionality.scala 13:16:@9.4]
+    node _T_13 = and(_T_12, io_y) @[Functionality.scala 13:19:@10.4]
+    node _T_14 = or(_T_11, _T_13) @[Functionality.scala 13:13:@11.4]
+    io_z <= _T_14 @[Functionality.scala 14:8:@12.4]
