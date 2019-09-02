@@ -12,3 +12,7 @@ firrtl_lexer.ml
 firrtl_main
 firrtl_opt
 firrtl_top
+.ocamlinit
+indent.log
+fir/indent.log
+fir/logfile
