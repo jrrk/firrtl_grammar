@@ -155,9 +155,12 @@ let showdecl inner fd indent = function
        Printf.fprintf fd "  wire %s;\n" (showexp expr)
    | TUPLE6 (REG, Id id, COLON, TUPLE2 (UInt, BRAKET wid), Id clock, _) ->
        Hashtbl.add idtab id (REG,wid);
-       Printf.fprintf fd "  reg [%d:0] %s;\n" (wid-1) id
+       Printf.fprintf fd "  reg [%d:0]\t%s;\n" (wid-1) id
+   | TUPLE6 (REG, Id id, COLON, TUPLE2 (UInt, TNone), Id clock, _) ->
+       Hashtbl.add idtab id (REG,1);
+       Printf.fprintf fd "  reg\t%s;\n" id
    | TUPLE4 (WIRE, Id id, COLON, TUPLE2 (UInt, BRAKET wid)) ->
-       Printf.fprintf fd "  wire [%d:0] %s;\n" (wid-1) id
+       Printf.fprintf fd "  wire [%d:0]\t%s;\n" (wid-1) id
    | TUPLE4 (WIRE, Id id, COLON, TUPLE4 (TUPLE2 (UInt, _), LBRACK, UnsignedInt ix, RBRACK)) ->
        Printf.fprintf fd "  wire %s;\n" id
    | TUPLE4 (WIRE, Id recid, COLON, TUPLE3 (LBRACE, TLIST reclst, RBRACE)) ->
@@ -231,6 +234,8 @@ and showbody fd clk = function
    | TUPLE6 (REG, Id id, COLON, TUPLE2 (UInt, BRAKET wid), Id clock, TUPLE3 (WITH, COLON,
       TUPLE3 (LPAREN, TUPLE6 (RESET, CONNECTS, LPAREN, reset, rval, RPAREN), RPAREN))) ->
        Printf.fprintf fd "  always @(posedge %s) if (%s) %s <= %s; else\n" clock (showexp reset) id (showexp rval)
+   | TUPLE6 (REG, Id id, COLON, TUPLE2 (UInt, (BRAKET 1 | TNone)), Id clock, TNone) ->
+       Printf.fprintf fd "  always @(posedge %s)\n" clock
    | TUPLE4 (WHEN, ev, COLON, TLIST evlst) as evnt -> when' fd clk 1 evnt
    | TUPLE7 (WHEN, ev, COLON, TLIST evlst, ELSE, COLON, TLIST elslst) as evnt -> when' fd clk 1 evnt
    | TUPLE4 (MEM, Id stack_mem, COLON, TLIST attrlst) -> ()

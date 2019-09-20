@@ -22,6 +22,6 @@ firrtl_lexer.ml: firrtl_lexer.mll
 regression:
 	(cd fir; rm -f logfile ; for i in *.fir; do ../firrtl_opt $$i |& tee -a logfile;done)
 
-debug:
+debug: firrtl_top
 	echo -e open Firrtl_grammar \\nopen Firrtl_main \\nopen Firrtl_dump \\nlet _ = iterate \"fir/${TARGET}.fir\" \"\"\;\; \\n > .ocamlinit
 	./firrtl_top
